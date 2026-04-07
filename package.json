@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "start:clean": "rm -rf node_modules/.cache && npm install && ng serve",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
@@ -25,7 +26,7 @@
     "@theredhead/foundation": "file:../theredhead-frontend-library/dist/theredhead-foundation-0.0.1.tgz",
     "@theredhead/ui-blocks": "file:../theredhead-frontend-library/dist/theredhead-ui-blocks-0.0.1.tgz",
     "@theredhead/ui-forms": "file:../theredhead-frontend-library/dist/theredhead-ui-forms-0.0.1.tgz",
-    "@theredhead/ui-kit": "file:../theredhead-frontend-library/dist/ui-kit/theredhead-ui-kit-0.0.1.tgz",
+    "@theredhead/ui-kit": "file:../theredhead-frontend-library/dist/theredhead-ui-kit-0.0.1.tgz",
     "@theredhead/ui-theme": "file:../theredhead-frontend-library/dist/theredhead-ui-theme-0.0.1.tgz",
     "keycloak-js": "^26.2.3",
     "rxjs": "~7.8.0",

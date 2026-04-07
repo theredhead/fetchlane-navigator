@@ -1,33 +1,32 @@
 :host {
   display: block;
-  padding: 16px;
+  padding: var(--ui-gap);
 }
 
 .bo-record-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--ui-gap);
+  margin-bottom: var(--ui-gap);
 }
 
 .bo-back-button {
-  padding: 6px 14px;
+  padding: calc(var(--ui-block-padding) / 2) var(--ui-inline-padding);
   border: 1px solid var(--ui-border);
-  border-radius: 6px;
-  font-size: 0.8125rem;
+  border-radius: var(--ui-radius);
+  font-size: var(--ui-font-body);
   cursor: pointer;
   color: var(--ui-text);
   background: var(--ui-surface);
   transition: background 0.15s;
 
   &:hover {
-    background: var(--ui-hover);
+    background: var(--ui-hover-bg);
   }
 }
 
 .bo-record-title {
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 1.125rem; font-weight: 600;
   margin: 0;
   color: var(--ui-text);
 }
@@ -39,17 +38,17 @@
 }
 
 .bo-loading {
-  opacity: 0.5;
-  padding: 24px 0;
-  color: var(--ui-text);
+  padding: var(--ui-gap) 0;
+  font-size: var(--ui-font-body);
+  color: var(--ui-text-muted);
 }
 
 .bo-error {
-  padding: 16px;
-  border-radius: 8px;
-  color: var(--ui-danger-text, var(--ui-text));
-  background: var(--ui-danger-surface, var(--ui-surface));
-  border: 1px solid var(--ui-danger-border, var(--ui-border));
+  padding: var(--ui-gap);
+  border-radius: var(--ui-radius);
+  color: var(--ui-error);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
 }
 
 .bo-field-grid {
@@ -58,7 +57,7 @@
   gap: 1px;
   margin: 0;
   border: 1px solid var(--ui-border);
-  border-radius: 8px;
+  border-radius: var(--ui-radius);
   overflow: hidden;
   background: var(--ui-surface);
 
@@ -79,7 +78,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 12px;
+  padding: var(--ui-block-padding) var(--ui-inline-padding);
   background: var(--ui-surface);
   box-shadow:
     -1px 0 0 var(--ui-border),
@@ -87,17 +86,15 @@
 }
 
 .bo-field-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
+  font-size: var(--ui-font-caption);
+  letter-spacing: var(--ui-ls-caption);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ui-text-secondary, var(--ui-text));
-  opacity: 0.7;
+  color: var(--ui-text-muted);
   margin: 0;
 }
 
 .bo-field-value {
-  font-size: 0.875rem;
+  font-size: var(--ui-font-body);
   color: var(--ui-text);
   word-break: break-all;
   margin: 0;
@@ -106,46 +103,45 @@
 .bo-fk-link {
   display: inline-block;
   padding: 2px 8px;
-  border: 1px solid var(--ui-primary);
-  border-radius: 4px;
+  border: 1px solid var(--ui-link);
+  border-radius: var(--ui-radius);
   font-size: 0.8125rem;
   cursor: pointer;
-  color: var(--ui-primary);
+  color: var(--ui-link);
   background: transparent;
   transition:
     background 0.15s,
     color 0.15s;
 
   &:hover {
-    color: var(--ui-on-primary);
-    background: var(--ui-primary);
+    color: var(--ui-accent-contrast);
+    background: var(--ui-link-hover, var(--ui-link));
   }
 }
 
 ::ng-deep .bo-fk-link {
-  color: var(--ui-primary);
+  color: var(--ui-link);
   text-decoration: underline;
   cursor: pointer;
 
   &:hover {
-    color: var(--ui-primary-hover, var(--ui-accent));
+    color: var(--ui-link-hover);
   }
 }
 
 .bo-empty {
-  opacity: 0.5;
   text-align: center;
-  padding: 32px;
-  color: var(--ui-text);
+  padding: calc(var(--ui-gap) * 2);
+  font-size: var(--ui-font-body);
+  color: var(--ui-text-muted);
 }
 
 .bo-related-section {
-  margin-top: 24px;
+  margin-top: calc(var(--ui-gap) * 1.5);
 }
 
 .bo-related-heading {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 12px;
+  font-size: 1.125rem; font-weight: 600;
+  margin: 0 0 var(--ui-gap);
   color: var(--ui-text);
 }

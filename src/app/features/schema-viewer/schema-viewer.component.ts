@@ -8,8 +8,16 @@ import {
 } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 
-import { LoggerFactory } from '@theredhead/foundation';
-import { UICheckbox, UIButton, UIIcon, UIIcons, ToastService } from '@theredhead/ui-kit';
+import { ArrayDatasource, LoggerFactory } from '@theredhead/foundation';
+import {
+  UICheckbox,
+  UIButton,
+  UIIcon,
+  UIIcons,
+  UITextColumn,
+  ToastService,
+} from '@theredhead/ui-kit';
+import { UIMasterDetailView } from '@theredhead/ui-blocks';
 import { FormEngine, UIForm } from '@theredhead/ui-forms';
 import type { FormSchema } from '@theredhead/ui-forms';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
@@ -22,7 +30,7 @@ type SchemaTab = 'schema' | 'add-form' | 'edit-form';
 
 @Component({
   selector: 'bo-schema-viewer',
-  imports: [JsonPipe, UICheckbox, UIButton, UIIcon, UIForm],
+  imports: [JsonPipe, UICheckbox, UIButton, UIIcon, UITextColumn, UIForm, UIMasterDetailView],
   templateUrl: './schema-viewer.component.html',
   styleUrl: './schema-viewer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +45,7 @@ export class BoSchemaViewer {
   private readonly toast = inject(ToastService);
 
   protected readonly tables = signal<string[]>([]);
+  protected readonly tableListDatasource = signal<ArrayDatasource<{ name: string }> | null>(null);
   protected readonly selectedTable = signal<string | null>(null);
   protected readonly schema = signal<FullTableSchema | null>(null);
   protected readonly rawSchema = signal<Record<string, unknown> | null>(null);
@@ -82,6 +91,12 @@ export class BoSchemaViewer {
     });
   }
 
+  protected onTableSelected(item: { name: string } | undefined): void {
+    if (item) {
+      this.selectTable(item.name);
+    }
+  }
+
   protected selectTable(table: string): void {
     this.selectedTable.set(table);
     this.activeTab.set('schema');
@@ -115,6 +130,8 @@ export class BoSchemaViewer {
     this.fetchlane.getTableNames(baseUrl).subscribe({
       next: (names) => {
         this.tables.set(names);
+        const ds = new ArrayDatasource(names.map((n) => ({ name: n })));
+        this.tableListDatasource.set(ds);
         this.loading.set(false);
       },
       error: (err) => {

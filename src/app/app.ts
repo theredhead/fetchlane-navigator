@@ -3,7 +3,13 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { UINavigationPage, navItem, type NavigationNode } from '@theredhead/ui-blocks';
-import { PopoverService, UIAvatar, UISidebarFooter, UIToastContainer } from '@theredhead/ui-kit';
+import {
+  PopoverService,
+  UIAvatar,
+  UIIcons,
+  UISidebarFooter,
+  UIToastContainer,
+} from '@theredhead/ui-kit';
 
 import { AuthService } from './core/services/auth.service';
 import { BoUserMenu, type UserMenuAction } from './features/user-menu/user-menu.component';
@@ -24,9 +30,9 @@ export class App {
   protected readonly activePage = signal(this.routeToPage(this.router.url));
 
   protected readonly navItems = [
-    navItem('browse', 'Tables', { route: 'browse' }),
-    navItem('schema', 'Schema', { route: 'schema' }),
-    navItem('settings', 'Settings', { route: 'settings' }),
+    navItem('browse', 'Tables', { route: 'browse', icon: UIIcons.Lucide.Files.Table }),
+    navItem('schema', 'Schema', { route: 'schema', icon: UIIcons.Lucide.Development.Braces }),
+    navItem('settings', 'Settings', { route: 'settings', icon: UIIcons.Lucide.Account.Settings }),
   ];
 
   public constructor() {

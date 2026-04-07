@@ -1,100 +1,94 @@
-<div class="bo-browser-layout">
-  <aside class="bo-table-list" aria-label="Table list">
-    <h2 class="bo-sidebar-heading">{{ connectionName() }} Tables</h2>
-    @if (loading() && tables().length === 0) {
-      <p class="bo-sidebar-status">Loading tables...</p>
-    }
-    <ul class="bo-sidebar-items" role="listbox" aria-label="Available tables">
-      @for (table of tables(); track table) {
-        <li
-          role="option"
-          class="bo-sidebar-item"
-          [class.is-selected]="selectedTable() === table"
-          [attr.aria-selected]="selectedTable() === table"
-          (click)="selectTable(table)"
-          (keydown.enter)="selectTable(table)"
-          tabindex="0"
-        >
-          <span class="bo-sidebar-name">{{ table }}</span>
-        </li>
-      }
-    </ul>
-  </aside>
+@if (tableListDatasource(); as listDs) {
+  <div class="mdv-wrap">
+  <ui-master-detail-view
+    [title]="connectionName() + ' Tables'"
+    [datasource]="listDs"
+    [splitSizes]="[20, 80]"
+    splitName="bo-table-browser"
+    splitCollapseTarget="first"
+    [listConstraints]="{ min: 180 }"
+    placeholder="Select a table from the list to browse its records."
+    [showFilter]="false"
+    (selectedChange)="onTableSelected($event)"
+  >
+    <ui-text-column key="name" headerText="Table" />
 
-  <section class="bo-records-panel" aria-label="Records">
-    @if (error()) {
-      <div class="bo-error" role="alert">
-        <p>{{ error() }}</p>
-      </div>
-    } @else if (!selectedTable()) {
-      <div class="bo-placeholder">
-        <p>Select a table from the list to browse its records.</p>
-      </div>
-    } @else if (datasource(); as ds) {
-      <div class="bo-records">
-        <div class="bo-records-toolbar">
-          <h2 class="bo-records-heading">{{ selectedTable() }}</h2>
-          <div class="bo-toolbar-actions">
-            @if (canWrite()) {
-              <ui-button size="small" color="primary" (click)="openAddDialog()" ariaLabel="Add record">
-                <ui-icon [svg]="plusIcon" [size]="16" />
-                Add
-              </ui-button>
-            }
-          </div>
+    <ng-template #detail let-item>
+      @if (error()) {
+        <div class="bo-error" role="alert">
+          <p>{{ error() }}</p>
         </div>
+      } @else if (datasource(); as ds) {
+        <div class="bo-records">
+          <div class="bo-records-toolbar">
+            <h2 class="bo-records-heading">{{ selectedTable() }}</h2>
+            <div class="bo-toolbar-actions">
+              @if (canWrite()) {
+                <ui-button size="small" color="primary" (click)="openAddDialog()" ariaLabel="Add record">
+                  <ui-icon [svg]="plusIcon" [size]="16" />
+                  Add
+                </ui-button>
+              }
+            </div>
+          </div>
 
-        @if (filterFields().length > 0) {
-          <ui-filter
-            [fields]="filterFields()"
-            (valueChange)="onFilterChanged($event)"
-          />
-        }
+          @if (filterFields().length > 0) {
+            <ui-filter
+              [fields]="filterFields()"
+              (valueChange)="onFilterChanged($event)"
+            />
+          }
 
-        <ui-table-view
-          [datasource]="ds"
-          [pageSize]="50"
-          selectionMode="none"
-          [showBuiltInPaginator]="true"
-        >
-          @for (col of columns(); track col.key) {
-            @if (col.fk; as fk) {
-              <ui-template-column [key]="col.key" [headerText]="col.header">
+          <ui-table-view
+            [datasource]="ds"
+            [tableId]="'bo-browse-' + selectedTable()"
+            [pageSize]="50"
+            selectionMode="none"
+            [showBuiltInPaginator]="true"
+          >
+            @for (col of columns(); track col.key) {
+              @if (col.fk; as fk) {
+                <ui-template-column [key]="col.key" [headerText]="col.header">
+                  <ng-template let-row>
+                    <a
+                      class="bo-fk-link"
+                      (click)="navigateToFkRecord(fk, row); $event.stopPropagation(); $event.preventDefault()"
+                      [attr.aria-label]="'View ' + fk.referencedTable + ' record ' + row[col.key]"
+                      href=""
+                    >
+                      {{ row[col.key] }}
+                    </a>
+                  </ng-template>
+                </ui-template-column>
+              } @else {
+                <ui-text-column [key]="col.key" [headerText]="col.header" />
+              }
+            }
+            @if (canWrite()) {
+              <ui-template-column key="__actions" headerText="">
                 <ng-template let-row>
-                  <a
-                    class="bo-fk-link"
-                    (click)="navigateToFkRecord(fk, row); $event.stopPropagation(); $event.preventDefault()"
-                    [attr.aria-label]="'View ' + fk.referencedTable + ' record ' + row[col.key]"
-                    href=""
-                  >
-                    {{ row[col.key] }}
-                  </a>
+                  <span class="bo-row-actions">
+                    <button class="bo-row-action" (click)="navigateToRecord(row); $event.stopPropagation()" aria-label="View record detail">
+                      <ui-icon [svg]="eyeIcon" [size]="14" />
+                    </button>
+                    <button class="bo-row-action" (click)="openEditDialogForRow(row); $event.stopPropagation()" aria-label="Edit record">
+                      <ui-icon [svg]="pencilIcon" [size]="14" />
+                    </button>
+                    <button class="bo-row-action bo-row-action--danger" (click)="confirmDeleteRow(row); $event.stopPropagation()" aria-label="Delete record">
+                      <ui-icon [svg]="trashIcon" [size]="14" />
+                    </button>
+                  </span>
                 </ng-template>
               </ui-template-column>
-            } @else {
-              <ui-text-column [key]="col.key" [headerText]="col.header" />
             }
-          }
-          @if (canWrite()) {
-            <ui-template-column key="__actions" headerText="">
-              <ng-template let-row>
-                <span class="bo-row-actions">
-                  <button class="bo-row-action" (click)="openEditDialogForRow(row); $event.stopPropagation()" aria-label="Edit record">
-                    <ui-icon [svg]="pencilIcon" [size]="14" />
-                  </button>
-                  <button class="bo-row-action bo-row-action--danger" (click)="confirmDeleteRow(row); $event.stopPropagation()" aria-label="Delete record">
-                    <ui-icon [svg]="trashIcon" [size]="14" />
-                  </button>
-                </span>
-              </ng-template>
-            </ui-template-column>
-          }
-        </ui-table-view>
-      </div>
-    } @else if (loading()) {
-      <div class="bo-placeholder">
+          </ui-table-view>
+        </div>
+      } @else if (loading()) {
         <p>Loading records...</p>
-      </div>
-    }
-  </section>
-</div>
+      }
+    </ng-template>
+  </ui-master-detail-view>
+  </div>
+} @else if (loading()) {
+  <p>Loading tables...</p>
+}

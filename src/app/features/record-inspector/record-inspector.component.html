@@ -65,6 +65,7 @@
             <ui-tab [label]="entry.key">
               <ui-table-view
                 [datasource]="entry.value.datasource"
+                [tableId]="'bo-related-' + entry.key"
                 [pageSize]="50"
                 selectionMode="none"
                 [showBuiltInPaginator]="true"

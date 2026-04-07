@@ -1,130 +1,90 @@
 :host {
-  display: block;
-  height: 100%;
-}
-
-.bo-browser-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 0;
-  height: 100%;
-}
-
-.bo-table-list {
-  color: var(--ui-text);
-  background: var(--ui-surface);
-  border-right: 1px solid var(--ui-border);
-  overflow-y: auto;
-  padding: 0;
-}
-
-.bo-sidebar-heading {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 16px 16px 8px;
-  margin: 0;
-  opacity: 0.7;
-}
-
-.bo-sidebar-status {
-  padding: 8px 16px;
-  font-size: 0.875rem;
-  opacity: 0.6;
-}
-
-.bo-sidebar-items {
-  list-style: none;
-  margin: 0;
-  padding: 0 8px;
-}
-
-.bo-sidebar-item {
   display: flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--ui-hover);
-  }
-
-  &.is-selected {
-    color: var(--ui-accent-text);
-    background: var(--ui-accent);
-
-    &:hover {
-      background: var(--ui-accent-hover);
-    }
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ui-accent);
-    outline-offset: -2px;
-  }
+  flex-direction: column;
+  height: 100%;
 }
 
-.bo-sidebar-name {
+.mdv-wrap {
   flex: 1;
+  min-height: 0;
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-border, #d7dce2);
+  border-radius: 6px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bo-records-panel {
-  overflow-y: auto;
-  padding: 16px;
 }
 
 .bo-error {
-  padding: 16px;
-  border-radius: 8px;
-  color: var(--ui-danger-text, var(--ui-text));
-  background: var(--ui-danger-surface, var(--ui-surface));
-  border: 1px solid var(--ui-danger-border, var(--ui-border));
-}
-
-.bo-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  opacity: 0.5;
-  font-size: 0.9375rem;
-  color: var(--ui-text);
+  padding: var(--ui-gap);
+  border-radius: var(--ui-radius);
+  color: var(--ui-error);
+  border: 1px solid var(--ui-border);
 }
 
 .bo-records-heading {
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0;
-  color: var(--ui-text);
+}
+
+.bo-records {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.bo-records ::ng-deep ui-table-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bo-records ::ng-deep ui-table-view .root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bo-records ::ng-deep ui-table-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.bo-records ::ng-deep .table-body-viewport {
+  height: 100% !important;
 }
 
 .bo-records-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: var(--ui-gap);
 }
 
 .bo-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--ui-gap) / 2);
 }
 
 ::ng-deep .bo-fk-link {
-  color: var(--ui-primary);
-  text-decoration: underline;
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--ui-link);
+  border-radius: var(--ui-radius);
+  font-size: 0.8125rem;
   cursor: pointer;
+  color: var(--ui-link);
+  background: transparent;
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   &:hover {
-    color: var(--ui-primary-hover, var(--ui-accent));
+    color: var(--ui-accent-contrast);
+    background: var(--ui-link-hover, var(--ui-link));
   }
 }
 
@@ -138,11 +98,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--ui-control-height, 28px);
+  height: var(--ui-control-height, 28px);
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--ui-radius);
   cursor: pointer;
   color: var(--ui-text);
   background: transparent;
@@ -154,11 +114,11 @@
 
   &:hover {
     opacity: 1;
-    background: var(--ui-hover);
+    background: var(--ui-hover-bg);
   }
 
   &--danger:hover {
-    color: var(--ui-danger, #dc2626);
-    background: var(--ui-danger-surface, rgba(220, 38, 38, 0.1));
+    color: var(--ui-error);
+    background: color-mix(in srgb, var(--ui-error) 10%, transparent);
   }
 }

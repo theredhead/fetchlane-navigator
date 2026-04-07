@@ -12,15 +12,15 @@
 .bo-sidebar-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: calc(var(--ui-gap) / 2);
+  padding: var(--ui-block-padding) var(--ui-inline-padding);
   margin-top: auto;
-  border-top: 1px solid var(--ui-border, #e0e3e8);
+  border-top: 1px solid var(--ui-border);
 }
 
 .bo-sidebar-user {
-  font-size: 0.8125rem;
-  color: var(--ui-text, #1d232b);
+  font-size: var(--ui-font-body);
+  color: var(--ui-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -29,7 +29,7 @@
 .bo-user-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: calc(var(--ui-gap) / 2);
   padding: 0;
   border: none;
   background: none;

@@ -1,235 +1,225 @@
-<div class="bo-schema-layout">
-  <aside class="bo-table-list" aria-label="Table list">
-    <h2 class="bo-sidebar-heading">{{ connectionName() }} Schema</h2>
-    @if (loading() && tables().length === 0) {
-      <p class="bo-sidebar-status">Loading tables...</p>
-    }
-    <ul class="bo-sidebar-items" role="listbox" aria-label="Available tables">
-      @for (table of tables(); track table) {
-        <li
-          role="option"
-          class="bo-sidebar-item"
-          [class.is-selected]="selectedTable() === table"
-          [attr.aria-selected]="selectedTable() === table"
-          (click)="selectTable(table)"
-          (keydown.enter)="selectTable(table)"
-          tabindex="0"
-        >
-          <span class="bo-sidebar-name">{{ table }}</span>
-        </li>
-      }
-    </ul>
-  </aside>
+@if (tableListDatasource(); as listDs) {
+  <div class="mdv-wrap">
+  <ui-master-detail-view
+    [title]="connectionName() + ' Schema'"
+    [datasource]="listDs"
+    [splitSizes]="[20, 80]"
+    splitName="bo-schema-viewer"
+    splitCollapseTarget="first"
+    [listConstraints]="{ min: 180 }"
+    placeholder="Select a table to view its schema."
+    [showFilter]="false"
+    (selectedChange)="onTableSelected($event)"
+  >
+    <ui-text-column key="name" headerText="Table" />
 
-  <section class="bo-schema-panel" aria-label="Schema">
-    @if (error()) {
-      <div class="bo-error" role="alert">
-        <p>{{ error() }}</p>
-      </div>
-    } @else if (!selectedTable()) {
-      <div class="bo-placeholder">
-        <p>Select a table to view its schema.</p>
-      </div>
-    } @else if (schema(); as s) {
-      <div class="bo-schema-output">
-        <div class="bo-schema-toolbar">
-          <h2 class="bo-schema-heading">{{ selectedTable() }}</h2>
-          <div class="bo-toolbar-actions">
-            @if (copyFeedback(); as feedback) {
-              <span class="bo-copy-feedback">{{ feedback }}</span>
-            }
-            <nav class="bo-tab-bar" aria-label="View mode">
-              <button class="bo-tab" [class.is-active]="activeTab() === 'schema'" (click)="setTab('schema')">Schema</button>
-              <button class="bo-tab" [class.is-active]="activeTab() === 'add-form'" (click)="setTab('add-form')">Add Form</button>
-              <button class="bo-tab" [class.is-active]="activeTab() === 'edit-form'" (click)="setTab('edit-form')">Edit Form</button>
-            </nav>
-          </div>
+    <ng-template #detail let-item>
+      @if (error()) {
+        <div class="bo-error" role="alert">
+          <p>{{ error() }}</p>
         </div>
-
-        @switch (activeTab()) {
-          @case ('schema') {
-            <div class="bo-schema-mode-toggle">
-              <ui-checkbox
-                [checked]="preferences.schemaDisplayMode() === 'json'"
-                (checkedChange)="preferences.setSchemaDisplayMode($event ? 'json' : 'formatted')"
-                ariaLabel="Show raw JSON"
-              >Raw JSON</ui-checkbox>
+      } @else if (schema(); as s) {
+        <div class="bo-schema-output">
+          <div class="bo-schema-toolbar">
+            <h2 class="bo-schema-heading">{{ selectedTable() }}</h2>
+            <div class="bo-toolbar-actions">
+              @if (copyFeedback(); as feedback) {
+                <span class="bo-copy-feedback">{{ feedback }}</span>
+              }
+              <nav class="bo-tab-bar" aria-label="View mode">
+                <button class="bo-tab" [class.is-active]="activeTab() === 'schema'" (click)="setTab('schema')">Schema</button>
+                <button class="bo-tab" [class.is-active]="activeTab() === 'add-form'" (click)="setTab('add-form')">Add Form</button>
+                <button class="bo-tab" [class.is-active]="activeTab() === 'edit-form'" (click)="setTab('edit-form')">Edit Form</button>
+              </nav>
             </div>
+          </div>
 
-            @if (preferences.schemaDisplayMode() === 'json') {
-              <pre class="bo-schema-json"><code>{{ rawSchema() | json }}</code></pre>
-            } @else {
-          <div class="bo-schema-formatted">
-            <section class="bo-schema-section">
-              <h3 class="bo-section-heading">Table Info</h3>
-              <dl class="bo-info-grid">
-                <div class="bo-info-cell">
-                  <dt>Name</dt>
-                  <dd>{{ s.table_name }}</dd>
-                </div>
-                <div class="bo-info-cell">
-                  <dt>Schema</dt>
-                  <dd>{{ s.table_schema }}</dd>
-                </div>
-                <div class="bo-info-cell">
-                  <dt>Type</dt>
-                  <dd>{{ s.table_type }}</dd>
-                </div>
-              </dl>
-            </section>
+          @switch (activeTab()) {
+            @case ('schema') {
+              <div class="bo-schema-mode-toggle">
+                <ui-checkbox
+                  [checked]="preferences.schemaDisplayMode() === 'json'"
+                  (checkedChange)="preferences.setSchemaDisplayMode($event ? 'json' : 'formatted')"
+                  ariaLabel="Show raw JSON"
+                >Raw JSON</ui-checkbox>
+              </div>
 
-            <section class="bo-schema-section">
-              <h3 class="bo-section-heading">Columns ({{ s.columns.length }})</h3>
-              <table class="bo-schema-table" aria-label="Column definitions">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>UDT</th>
-                    <th>Nullable</th>
-                    <th>Default</th>
-                    <th>Max Length</th>
-                    <th>Precision</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (col of s.columns; track col.column_name) {
-                    <tr>
-                      <td>{{ col.ordinal_position }}</td>
-                      <td class="bo-col-name">{{ col.column_name }}</td>
-                      <td class="bo-col-type">{{ col.data_type }}</td>
-                      <td class="bo-col-type">{{ col.udt_name }}</td>
-                      <td>{{ col.is_nullable ? 'Yes' : 'No' }}</td>
-                      <td class="bo-col-default">{{ col.column_default ?? '—' }}</td>
-                      <td>{{ col.character_maximum_length ?? '—' }}</td>
-                      <td>
-                        @if (col.numeric_precision !== null) {
-                          {{ col.numeric_precision }}@if (col.numeric_scale !== null) {,{{ col.numeric_scale }}}
-                        } @else {
-                          —
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </section>
-
-            @if (s.constraints.length > 0) {
+              @if (preferences.schemaDisplayMode() === 'json') {
+                <pre class="bo-schema-json"><code>{{ rawSchema() | json }}</code></pre>
+              } @else {
+            <div class="bo-schema-formatted">
               <section class="bo-schema-section">
-                <h3 class="bo-section-heading">Constraints ({{ s.constraints.length }})</h3>
-                <table class="bo-schema-table" aria-label="Constraint definitions">
+                <h3 class="bo-section-heading">Table Info</h3>
+                <dl class="bo-info-grid">
+                  <div class="bo-info-cell">
+                    <dt>Name</dt>
+                    <dd>{{ s.table_name }}</dd>
+                  </div>
+                  <div class="bo-info-cell">
+                    <dt>Schema</dt>
+                    <dd>{{ s.table_schema }}</dd>
+                  </div>
+                  <div class="bo-info-cell">
+                    <dt>Type</dt>
+                    <dd>{{ s.table_type }}</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section class="bo-schema-section">
+                <h3 class="bo-section-heading">Columns ({{ s.columns.length }})</h3>
+                <table class="bo-schema-table" aria-label="Column definitions">
                   <thead>
                     <tr>
+                      <th>#</th>
                       <th>Name</th>
                       <th>Type</th>
-                      <th>Columns</th>
-                      <th>References</th>
-                      <th>On Update</th>
-                      <th>On Delete</th>
+                      <th>UDT</th>
+                      <th>Nullable</th>
+                      <th>Default</th>
+                      <th>Max Length</th>
+                      <th>Precision</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (c of s.constraints; track c.constraint_name) {
+                    @for (col of s.columns; track col.column_name) {
                       <tr>
-                        <td class="bo-constraint-name">{{ c.constraint_name }}</td>
+                        <td>{{ col.ordinal_position }}</td>
+                        <td class="bo-col-name">{{ col.column_name }}</td>
+                        <td class="bo-col-type">{{ col.data_type }}</td>
+                        <td class="bo-col-type">{{ col.udt_name }}</td>
+                        <td>{{ col.is_nullable ? 'Yes' : 'No' }}</td>
+                        <td class="bo-col-default">{{ col.column_default ?? '—' }}</td>
+                        <td>{{ col.character_maximum_length ?? '—' }}</td>
                         <td>
-                          <span class="bo-constraint-badge" [attr.data-type]="c.constraint_type">
-                            {{ c.constraint_type }}
-                          </span>
-                        </td>
-                        <td>{{ c.columns.join(', ') }}</td>
-                        <td>
-                          @if (c.referenced_table) {
-                            {{ c.referenced_table }}({{ c.referenced_columns.join(', ') }})
+                          @if (col.numeric_precision !== null) {
+                            {{ col.numeric_precision }}@if (col.numeric_scale !== null) {,{{ col.numeric_scale }}}
                           } @else {
                             —
                           }
                         </td>
-                        <td>{{ c.update_rule ?? '—' }}</td>
-                        <td>{{ c.delete_rule ?? '—' }}</td>
                       </tr>
                     }
                   </tbody>
                 </table>
               </section>
-            }
 
-            @if (s.indexes.length > 0) {
-              <section class="bo-schema-section">
-                <h3 class="bo-section-heading">Indexes ({{ s.indexes.length }})</h3>
-                <table class="bo-schema-table" aria-label="Index definitions">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Method</th>
-                      <th>Columns</th>
-                      <th>Unique</th>
-                      <th>Primary</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (idx of s.indexes; track idx.index_name) {
+              @if (s.constraints.length > 0) {
+                <section class="bo-schema-section">
+                  <h3 class="bo-section-heading">Constraints ({{ s.constraints.length }})</h3>
+                  <table class="bo-schema-table" aria-label="Constraint definitions">
+                    <thead>
                       <tr>
-                        <td class="bo-constraint-name">{{ idx.index_name }}</td>
-                        <td>{{ idx.method }}</td>
-                        <td>{{ idx.columns.join(', ') || '—' }}</td>
-                        <td>{{ idx.is_unique ? 'Yes' : 'No' }}</td>
-                        <td>{{ idx.is_primary ? 'Yes' : 'No' }}</td>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Columns</th>
+                        <th>References</th>
+                        <th>On Update</th>
+                        <th>On Delete</th>
                       </tr>
-                    }
-                  </tbody>
-                </table>
-              </section>
+                    </thead>
+                    <tbody>
+                      @for (c of s.constraints; track c.constraint_name) {
+                        <tr>
+                          <td class="bo-constraint-name">{{ c.constraint_name }}</td>
+                          <td>
+                            <span class="bo-constraint-badge" [attr.data-type]="c.constraint_type">
+                              {{ c.constraint_type }}
+                            </span>
+                          </td>
+                          <td>{{ c.columns.join(', ') }}</td>
+                          <td>
+                            @if (c.referenced_table) {
+                              {{ c.referenced_table }}({{ c.referenced_columns.join(', ') }})
+                            } @else {
+                              —
+                            }
+                          </td>
+                          <td>{{ c.update_rule ?? '—' }}</td>
+                          <td>{{ c.delete_rule ?? '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </section>
+              }
+
+              @if (s.indexes.length > 0) {
+                <section class="bo-schema-section">
+                  <h3 class="bo-section-heading">Indexes ({{ s.indexes.length }})</h3>
+                  <table class="bo-schema-table" aria-label="Index definitions">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Method</th>
+                        <th>Columns</th>
+                        <th>Unique</th>
+                        <th>Primary</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (idx of s.indexes; track idx.index_name) {
+                        <tr>
+                          <td class="bo-constraint-name">{{ idx.index_name }}</td>
+                          <td>{{ idx.method }}</td>
+                          <td>{{ idx.columns.join(', ') || '—' }}</td>
+                          <td>{{ idx.is_unique ? 'Yes' : 'No' }}</td>
+                          <td>{{ idx.is_primary ? 'Yes' : 'No' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </section>
+              }
+            </div>
+          }
             }
-          </div>
-        }
-          }
-          @case ('add-form') {
-            <div class="bo-form-preview-panel">
-              <div class="bo-form-preview-toolbar">
-                <ui-button variant="ghost" size="small" (click)="copyFormJson('add')" ariaLabel="Copy Add Form JSON">
-                  <ui-icon [svg]="copyIcon" [size]="16" />
-                  Copy JSON
-                </ui-button>
-              </div>
-              @if (addFormEngine(); as engine) {
-                <div class="bo-form-preview">
-                  <ui-form [engine]="engine" [showSubmit]="false" />
+            @case ('add-form') {
+              <div class="bo-form-preview-panel">
+                <div class="bo-form-preview-toolbar">
+                  <ui-button variant="ghost" size="small" (click)="copyFormJson('add')" ariaLabel="Copy Add Form JSON">
+                    <ui-icon [svg]="copyIcon" [size]="16" />
+                    Copy JSON
+                  </ui-button>
                 </div>
-                <details class="bo-form-json-details">
-                  <summary>View JSON</summary>
-                  <pre class="bo-schema-json"><code>{{ addFormSchema() | json }}</code></pre>
-                </details>
-              }
-            </div>
-          }
-          @case ('edit-form') {
-            <div class="bo-form-preview-panel">
-              <div class="bo-form-preview-toolbar">
-                <ui-button variant="ghost" size="small" (click)="copyFormJson('edit')" ariaLabel="Copy Edit Form JSON">
-                  <ui-icon [svg]="copyIcon" [size]="16" />
-                  Copy JSON
-                </ui-button>
+                @if (addFormEngine(); as engine) {
+                  <div class="bo-form-preview">
+                    <ui-form [engine]="engine" [showSubmit]="false" />
+                  </div>
+                  <details class="bo-form-json-details">
+                    <summary>View JSON</summary>
+                    <pre class="bo-schema-json"><code>{{ addFormSchema() | json }}</code></pre>
+                  </details>
+                }
               </div>
-              @if (editFormEngine(); as engine) {
-                <div class="bo-form-preview">
-                  <ui-form [engine]="engine" [showSubmit]="false" />
+            }
+            @case ('edit-form') {
+              <div class="bo-form-preview-panel">
+                <div class="bo-form-preview-toolbar">
+                  <ui-button variant="ghost" size="small" (click)="copyFormJson('edit')" ariaLabel="Copy Edit Form JSON">
+                    <ui-icon [svg]="copyIcon" [size]="16" />
+                    Copy JSON
+                  </ui-button>
                 </div>
-                <details class="bo-form-json-details">
-                  <summary>View JSON</summary>
-                  <pre class="bo-schema-json"><code>{{ editFormSchema() | json }}</code></pre>
-                </details>
-              }
-            </div>
+                @if (editFormEngine(); as engine) {
+                  <div class="bo-form-preview">
+                    <ui-form [engine]="engine" [showSubmit]="false" />
+                  </div>
+                  <details class="bo-form-json-details">
+                    <summary>View JSON</summary>
+                    <pre class="bo-schema-json"><code>{{ editFormSchema() | json }}</code></pre>
+                  </details>
+                }
+              </div>
+            }
           }
-        }
-      </div>
-    } @else if (loading()) {
-      <div class="bo-placeholder">
+        </div>
+      } @else if (loading()) {
         <p>Loading schema...</p>
-      </div>
-    }
-  </section>
-</div>
+      }
+    </ng-template>
+  </ui-master-detail-view>
+  </div>
+} @else if (loading()) {
+  <p>Loading tables...</p>
+}

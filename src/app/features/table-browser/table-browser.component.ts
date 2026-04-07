@@ -25,8 +25,8 @@ import {
   type FilterFieldDefinition,
   type FilterFieldType,
 } from '@theredhead/ui-kit';
-
-import { LoggerFactory } from '@theredhead/foundation';
+import { UIMasterDetailView } from '@theredhead/ui-blocks';
+import { ArrayDatasource, LoggerFactory } from '@theredhead/foundation';
 import type { DbEngine } from '../../core/datasources/fetchlane-datasource';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { FetchlaneService } from '../../core/services/fetchlane.service';
@@ -51,7 +51,15 @@ interface ColumnDef {
   templateUrl: './table-browser.component.html',
   styleUrl: './table-browser.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UITableView, UITextColumn, UITemplateColumn, UIButton, UIIcon, UIFilter],
+  imports: [
+    UITableView,
+    UITextColumn,
+    UITemplateColumn,
+    UIButton,
+    UIIcon,
+    UIFilter,
+    UIMasterDetailView,
+  ],
   host: { class: 'bo-table-browser' },
 })
 export class BoTableBrowser {
@@ -66,6 +74,7 @@ export class BoTableBrowser {
   private readonly injector = inject(Injector);
 
   protected readonly tables = signal<readonly string[]>([]);
+  protected readonly tableListDatasource = signal<ArrayDatasource<{ name: string }> | null>(null);
   protected readonly selectedTable = signal<string | null>(null);
   protected readonly datasource = signal<FetchlaneDatasource | null>(null);
   protected readonly loading = signal(false);
@@ -77,6 +86,7 @@ export class BoTableBrowser {
   protected readonly plusIcon = UIIcons.Lucide.Cursors.Plus;
   protected readonly pencilIcon = UIIcons.Lucide.Cursors.Pencil;
   protected readonly trashIcon = UIIcons.Lucide.Files.Trash;
+  protected readonly eyeIcon = UIIcons.Lucide.Accessibility.Eye;
 
   private readonly filterSubject = new Subject<FilterDescriptor>();
   private readonly destroyRef = inject(DestroyRef);
@@ -117,6 +127,12 @@ export class BoTableBrowser {
       this.datasource.set(null);
       this.loadTables(url);
     });
+  }
+
+  protected onTableSelected(item: { name: string } | undefined): void {
+    if (item) {
+      this.selectTable(item.name);
+    }
   }
 
   protected selectTable(table: string): void {
@@ -309,6 +325,18 @@ export class BoTableBrowser {
     return String(row[pkColumn]);
   }
 
+  protected navigateToRecord(row: Record<string, unknown>): void {
+    const table = this.selectedTable();
+    if (!table) {
+      return;
+    }
+    const pk = this.getPrimaryKeyFromRow(row);
+    if (!pk) {
+      return;
+    }
+    void this.router.navigate(['/browse', table, 'record', pk]);
+  }
+
   protected navigateToFkRecord(fk: ForeignKeyInfo, row: Record<string, unknown>): void {
     const value = row[fk.column];
     if (value == null) {
@@ -323,6 +351,8 @@ export class BoTableBrowser {
     this.fetchlane.getTableNames(baseUrl).subscribe({
       next: (names) => {
         this.tables.set(names);
+        const ds = new ArrayDatasource(names.map((n) => ({ name: n })));
+        this.tableListDatasource.set(ds);
         this.loading.set(false);
       },
       error: (err) => {
