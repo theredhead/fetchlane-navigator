@@ -75,6 +75,19 @@
 </div>
 
 <div class="bo-section">
+  <h2 class="bo-section-heading">Schema Cache</h2>
+  <p class="bo-setting-label">
+    Cached entries: {{ fetchlane.cacheSize() }}
+  </p>
+  <p class="bo-setting-hint">
+    Table names and schemas are cached for one hour.
+  </p>
+  <ui-button variant="outlined" color="neutral" (click)="resetSchemaCache()">
+    Reset Schema Cache
+  </ui-button>
+</div>
+
+<div class="bo-section">
   <h2 class="bo-section-heading">Add Custom Connection</h2>
   <div class="bo-add-form">
     <ui-input

@@ -3,6 +3,7 @@ import { UIButton, UIInput, UIRadioGroup, UISelect, type SelectOption } from '@t
 
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { AuthService } from '../../core/services/auth.service';
+import { FetchlaneService } from '../../core/services/fetchlane.service';
 import {
   PreferencesService,
   type NavigationMode,
@@ -21,6 +22,7 @@ import type { ConnectionConfig } from '../../core/models';
 export class BoSettings {
   protected readonly connectionManager = inject(ConnectionManagerService);
   private readonly auth = inject(AuthService);
+  protected readonly fetchlane = inject(FetchlaneService);
   protected readonly preferences = inject(PreferencesService);
 
   protected readonly newName = signal('');
@@ -88,5 +90,9 @@ export class BoSettings {
 
   protected logout(): void {
     this.auth.logout();
+  }
+
+  protected resetSchemaCache(): void {
+    this.fetchlane.clearCache();
   }
 }

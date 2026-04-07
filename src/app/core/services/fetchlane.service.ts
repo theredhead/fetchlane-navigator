@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { inject, Injectable, signal } from '@angular/core';
+import { map, Observable, of, tap } from 'rxjs';
 
 import type {
   ChildForeignKeyInfo,
@@ -14,15 +14,56 @@ import type {
   TableInfo,
 } from '../models';
 
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 @Injectable({ providedIn: 'root' })
 export class FetchlaneService {
   private readonly http = inject(HttpClient);
-  private readonly schemaCache = new Map<string, FullTableSchema>();
+  private readonly schemaCache = new Map<string, CacheEntry<FullTableSchema>>();
+  private readonly tableNamesCache = new Map<string, CacheEntry<string[]>>();
+
+  /**
+   * Number of entries currently held in the metadata cache.
+   * Exposed as a signal so the settings panel can display it reactively.
+   */
+  public readonly cacheSize = signal(0);
+
+  /**
+   * Clears all cached table names and schemas.
+   */
+  public clearCache(): void {
+    this.schemaCache.clear();
+    this.tableNamesCache.clear();
+    this.cacheSize.set(0);
+  }
+
+  private updateCacheSize(): void {
+    this.cacheSize.set(this.schemaCache.size + this.tableNamesCache.size);
+  }
+
+  private isFresh<T>(entry: CacheEntry<T> | undefined): entry is CacheEntry<T> {
+    return entry != null && Date.now() < entry.expiresAt;
+  }
 
   public getTableNames(baseUrl: string): Observable<string[]> {
+    const entry = this.tableNamesCache.get(baseUrl);
+    if (this.isFresh(entry)) {
+      return of(entry.value);
+    }
     return this.http
       .get<Record<string, string>[]>(`${baseUrl}/api/data-access/table-names`)
-      .pipe(map((items) => items.map((i) => i['table_name'] ?? i['TABLE_NAME'] ?? '')));
+      .pipe(
+        map((items) => items.map((i) => i['table_name'] ?? i['TABLE_NAME'] ?? '')),
+        tap((names) => {
+          this.tableNamesCache.set(baseUrl, { value: names, expiresAt: Date.now() + CACHE_TTL_MS });
+          this.updateCacheSize();
+        }),
+      );
   }
 
   public getTableInfo(baseUrl: string, table: string): Observable<TableInfo> {
@@ -95,17 +136,14 @@ export class FetchlaneService {
 
   public getCachedSchema(baseUrl: string, table: string): Observable<FullTableSchema> {
     const key = `${baseUrl}::${table}`;
-    const cached = this.schemaCache.get(key);
-    if (cached) {
-      return new Observable((subscriber) => {
-        subscriber.next(cached);
-        subscriber.complete();
-      });
+    const entry = this.schemaCache.get(key);
+    if (this.isFresh(entry)) {
+      return of(entry.value);
     }
     return this.getTableSchema(baseUrl, table).pipe(
-      map((schema) => {
-        this.schemaCache.set(key, schema);
-        return schema;
+      tap((schema) => {
+        this.schemaCache.set(key, { value: schema, expiresAt: Date.now() + CACHE_TTL_MS });
+        this.updateCacheSize();
       }),
     );
   }
