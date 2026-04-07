@@ -215,9 +215,9 @@ export class BoTableBrowser {
       return;
     }
     this.fetchlane.updateRecord(this.baseUrl(), table, pk, values).subscribe({
-      next: () => {
+      next: (savedRow) => {
         this.log.debug('Record updated');
-        this.reloadDatasource();
+        this.datasource()?.updateRow(savedRow);
       },
       error: (err) => {
         this.log.error('Failed to update record', [err]);

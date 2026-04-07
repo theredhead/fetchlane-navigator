@@ -17,36 +17,51 @@ export interface RecordFormResult {
   host: { class: 'bo-record-form-dialog' },
   styles: `
     :host {
-      display: block;
-      padding: 24px;
+      display: flex;
+      flex-direction: column;
       min-width: 400px;
       max-width: 640px;
+      max-height: 80vh;
+      overflow: hidden;
+    }
+    .bo-form-dialog-header {
+      padding: 24px 24px 0;
     }
     .bo-form-dialog-title {
       font-size: 1.125rem;
       font-weight: 600;
-      margin: 0 0 16px;
+      margin: 0;
+    }
+    .bo-form-dialog-body {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 16px 24px;
     }
     .bo-form-dialog-error {
       color: var(--ui-danger);
       font-size: 0.8125rem;
-      margin: 8px 0;
+      margin: 8px 0 0;
     }
-    .bo-form-dialog-actions {
+    .bo-form-dialog-footer {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      margin-top: 16px;
+      padding: 16px 24px;
+      border-top: 1px solid var(--ui-border);
     }
   `,
   template: `
-    <h2 class="bo-form-dialog-title">{{ title() }}</h2>
+    <div class="bo-form-dialog-header">
+      <h2 class="bo-form-dialog-title">{{ title() }}</h2>
+    </div>
     @if (engine(); as eng) {
-      <ui-form [engine]="eng" [showSubmit]="false" />
-      @if (errorMessage()) {
-        <p class="bo-form-dialog-error">{{ errorMessage() }}</p>
-      }
-      <div class="bo-form-dialog-actions">
+      <div class="bo-form-dialog-body">
+        <ui-form [engine]="eng" [showSubmit]="false" />
+        @if (errorMessage()) {
+          <p class="bo-form-dialog-error">{{ errorMessage() }}</p>
+        }
+      </div>
+      <div class="bo-form-dialog-footer">
         <ui-button variant="ghost" (click)="onCancel()">Cancel</ui-button>
         <ui-button color="primary" [disabled]="!eng.valid()" (click)="onSave(eng)">
           <ui-icon [svg]="saveIcon" [size]="16" />

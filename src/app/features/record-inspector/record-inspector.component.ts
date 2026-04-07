@@ -272,9 +272,10 @@ export class BoRecordInspector {
       return;
     }
     this.fetchlane.updateRecord(this.baseUrl(), table, pk, values).subscribe({
-      next: () => {
+      next: (savedRow) => {
         this.log.debug('Record updated');
-        this.loadRecord(table, pk);
+        this.record.set(savedRow);
+        this.fields.set(Object.entries(savedRow));
       },
       error: (err) => {
         this.log.error('Failed to update record', [err]);

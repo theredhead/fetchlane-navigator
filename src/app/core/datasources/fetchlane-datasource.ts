@@ -226,6 +226,27 @@ export class FetchlaneDatasource
     await this.fetchPage(0);
   }
 
+  /**
+   * Replace a row in the current page and cache by matching the primary key.
+   * Avoids a full reload after an edit.
+   */
+  public updateRow(updatedRow: Record<string, unknown>): void {
+    const pkCol = this.getPrimaryKeyColumn();
+    if (!pkCol) {
+      return;
+    }
+    const pkValue = updatedRow[pkCol];
+    const idx = this.rows.findIndex((r) => r[pkCol] === pkValue);
+    if (idx !== -1) {
+      this.rows[idx] = updatedRow;
+      const cached = this.pageCache.get(this.pageIndex);
+      if (cached && idx < cached.length) {
+        cached[idx] = updatedRow;
+      }
+      this.noteRowChanged.emit({ rowIndex: this.pageIndex * this.pageSize + idx });
+    }
+  }
+
   public isTotalApproximate(): boolean {
     return !this.totalKnown;
   }
