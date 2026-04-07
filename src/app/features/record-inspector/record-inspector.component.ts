@@ -20,9 +20,11 @@ import {
   UIIcon,
   UIIcons,
   ModalService,
+  ToastService,
 } from '@theredhead/ui-kit';
 
 import { LoggerFactory } from '@theredhead/foundation';
+import type { DbEngine } from '../../core/datasources/fetchlane-datasource';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { FetchlaneService } from '../../core/services/fetchlane.service';
 import { FetchlaneDatasource } from '../../core/datasources/fetchlane-datasource';
@@ -74,6 +76,7 @@ export class BoRecordInspector {
   private readonly auth = inject(AuthService);
   private readonly formFactory = inject(SchemaFormFactory);
   private readonly modal = inject(ModalService);
+  private readonly toast = inject(ToastService);
 
   protected readonly tableName = signal('');
   protected readonly primaryKey = signal('');
@@ -92,6 +95,9 @@ export class BoRecordInspector {
   protected readonly trashIcon = UIIcons.Lucide.Files.Trash;
 
   protected readonly baseUrl = computed(() => this.connectionManager.activeConnection().baseUrl);
+  protected readonly engine = computed<DbEngine>(
+    () => this.connectionManager.activeConnection().engine,
+  );
 
   private readonly destroyRef = inject(DestroyRef);
 
@@ -135,7 +141,9 @@ export class BoRecordInspector {
         this.loadSchema(table, record);
       },
       error: (err) => {
-        this.error.set(err?.error?.message ?? 'Failed to load record');
+        const msg = err?.error?.message ?? 'Failed to load record';
+        this.error.set(msg);
+        this.toast.error(msg);
         this.loading.set(false);
       },
     });
@@ -171,7 +179,12 @@ export class BoRecordInspector {
         continue;
       }
 
-      const ds = new FetchlaneDatasource(this.baseUrl(), fk.referencedTable, this.injector);
+      const ds = new FetchlaneDatasource(
+        this.baseUrl(),
+        fk.referencedTable,
+        this.engine(),
+        this.injector,
+      );
       ds.setPredicates([
         { text: `${fk.referencedColumn} = :value`, args: { value: String(value) } },
       ]);
@@ -279,7 +292,9 @@ export class BoRecordInspector {
       },
       error: (err) => {
         this.log.error('Failed to update record', [err]);
-        this.error.set(err?.error?.message ?? 'Failed to update record.');
+        const msg = err?.error?.message ?? 'Failed to update record.';
+        this.error.set(msg);
+        this.toast.error(msg);
       },
     });
   }
@@ -297,7 +312,9 @@ export class BoRecordInspector {
       },
       error: (err) => {
         this.log.error('Failed to delete record', [err]);
-        this.error.set(err?.error?.message ?? 'Failed to delete record.');
+        const msg = err?.error?.message ?? 'Failed to delete record.';
+        this.error.set(msg);
+        this.toast.error(msg);
       },
     });
   }
@@ -312,7 +329,12 @@ export class BoRecordInspector {
         continue;
       }
 
-      const ds = new FetchlaneDatasource(this.baseUrl(), childFk.childTable, this.injector);
+      const ds = new FetchlaneDatasource(
+        this.baseUrl(),
+        childFk.childTable,
+        this.engine(),
+        this.injector,
+      );
       ds.setPredicates([
         { text: `${childFk.childColumn} = :value`, args: { value: String(value) } },
       ]);

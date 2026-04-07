@@ -2,12 +2,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   Injector,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
+import { Subject, debounceTime } from 'rxjs';
 import {
   UITableView,
   UITextColumn,
@@ -15,10 +18,16 @@ import {
   UIButton,
   UIIcon,
   UIIcons,
+  UIFilter,
   ModalService,
+  ToastService,
+  type FilterDescriptor,
+  type FilterFieldDefinition,
+  type FilterFieldType,
 } from '@theredhead/ui-kit';
 
 import { LoggerFactory } from '@theredhead/foundation';
+import type { DbEngine } from '../../core/datasources/fetchlane-datasource';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { FetchlaneService } from '../../core/services/fetchlane.service';
 import { FetchlaneDatasource } from '../../core/datasources/fetchlane-datasource';
@@ -42,7 +51,7 @@ interface ColumnDef {
   templateUrl: './table-browser.component.html',
   styleUrl: './table-browser.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UITableView, UITextColumn, UITemplateColumn, UIButton, UIIcon],
+  imports: [UITableView, UITextColumn, UITemplateColumn, UIButton, UIIcon, UIFilter],
   host: { class: 'bo-table-browser' },
 })
 export class BoTableBrowser {
@@ -53,6 +62,7 @@ export class BoTableBrowser {
   private readonly auth = inject(AuthService);
   private readonly formFactory = inject(SchemaFormFactory);
   private readonly modal = inject(ModalService);
+  private readonly toast = inject(ToastService);
   private readonly injector = inject(Injector);
 
   protected readonly tables = signal<readonly string[]>([]);
@@ -68,12 +78,39 @@ export class BoTableBrowser {
   protected readonly pencilIcon = UIIcons.Lucide.Cursors.Pencil;
   protected readonly trashIcon = UIIcons.Lucide.Files.Trash;
 
+  private readonly filterSubject = new Subject<FilterDescriptor>();
+  private readonly destroyRef = inject(DestroyRef);
+
+  protected readonly filterFields = computed<FilterFieldDefinition[]>(() => {
+    const schema = this.currentSchema();
+    if (!schema) {
+      return [];
+    }
+    return schema.columns.map((col) => ({
+      key: col.column_name,
+      label: this.humanize(col.column_name),
+      type: this.sqlTypeToFilterType(col.data_type),
+    }));
+  });
+
   protected readonly baseUrl = computed(() => this.connectionManager.activeConnection().baseUrl);
+  protected readonly engine = computed<DbEngine>(
+    () => this.connectionManager.activeConnection().engine,
+  );
   protected readonly connectionName = computed(
     () => this.connectionManager.activeConnection().name,
   );
 
   public constructor() {
+    this.filterSubject
+      .pipe(debounceTime(800), takeUntilDestroyed(this.destroyRef))
+      .subscribe((descriptor) => {
+        const ds = this.datasource();
+        if (ds) {
+          ds.applyFilterDescriptor(descriptor);
+        }
+      });
+
     effect(() => {
       const url = this.baseUrl();
       this.selectedTable.set(null);
@@ -88,7 +125,7 @@ export class BoTableBrowser {
     }
     this.selectedTable.set(table);
 
-    const ds = new FetchlaneDatasource(this.baseUrl(), table, this.injector);
+    const ds = new FetchlaneDatasource(this.baseUrl(), table, this.engine(), this.injector);
     this.loading.set(true);
     this.error.set(null);
 
@@ -103,12 +140,16 @@ export class BoTableBrowser {
             this.loading.set(false);
           })
           .catch((err) => {
-            this.error.set(err?.error?.message ?? 'Failed to load table');
+            const msg = err?.error?.message ?? 'Failed to load table';
+            this.error.set(msg);
+            this.toast.error(msg);
             this.loading.set(false);
           });
       },
       error: (err) => {
-        this.error.set(err?.error?.message ?? 'Failed to load schema');
+        const msg = err?.error?.message ?? 'Failed to load schema';
+        this.error.set(msg);
+        this.toast.error(msg);
         this.loading.set(false);
       },
     });
@@ -204,7 +245,9 @@ export class BoTableBrowser {
       },
       error: (err) => {
         this.log.error('Failed to create record', [err]);
-        this.error.set(err?.error?.message ?? 'Failed to create record.');
+        const msg = err?.error?.message ?? 'Failed to create record.';
+        this.error.set(msg);
+        this.toast.error(msg);
       },
     });
   }
@@ -221,7 +264,9 @@ export class BoTableBrowser {
       },
       error: (err) => {
         this.log.error('Failed to update record', [err]);
-        this.error.set(err?.error?.message ?? 'Failed to update record.');
+        const msg = err?.error?.message ?? 'Failed to update record.';
+        this.error.set(msg);
+        this.toast.error(msg);
       },
     });
   }
@@ -238,7 +283,9 @@ export class BoTableBrowser {
       },
       error: (err) => {
         this.log.error('Failed to delete record', [err]);
-        this.error.set(err?.error?.message ?? 'Failed to delete record.');
+        const msg = err?.error?.message ?? 'Failed to delete record.';
+        this.error.set(msg);
+        this.toast.error(msg);
       },
     });
   }
@@ -279,7 +326,9 @@ export class BoTableBrowser {
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err?.error?.message ?? 'Failed to load tables');
+        const msg = err?.error?.message ?? 'Failed to load tables';
+        this.error.set(msg);
+        this.toast.error(msg);
         this.loading.set(false);
       },
     });
@@ -305,5 +354,28 @@ export class BoTableBrowser {
       .replace(/_/g, ' ')
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  protected onFilterChanged(descriptor: FilterDescriptor): void {
+    this.filterSubject.next(descriptor);
+  }
+
+  private sqlTypeToFilterType(dataType: string): FilterFieldType {
+    const lower = dataType.toLowerCase();
+    if (
+      lower.includes('int') ||
+      lower.includes('numeric') ||
+      lower.includes('decimal') ||
+      lower.includes('float') ||
+      lower.includes('double') ||
+      lower.includes('real') ||
+      lower.includes('money')
+    ) {
+      return 'number';
+    }
+    if (lower.includes('date') || lower.includes('time')) {
+      return 'date';
+    }
+    return 'string';
   }
 }

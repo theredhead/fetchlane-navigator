@@ -3,14 +3,14 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { UINavigationPage, navItem, type NavigationNode } from '@theredhead/ui-blocks';
-import { PopoverService, UIAvatar, UISidebarFooter } from '@theredhead/ui-kit';
+import { PopoverService, UIAvatar, UISidebarFooter, UIToastContainer } from '@theredhead/ui-kit';
 
 import { AuthService } from './core/services/auth.service';
 import { BoUserMenu, type UserMenuAction } from './features/user-menu/user-menu.component';
 
 @Component({
   selector: 'bo-root',
-  imports: [RouterOutlet, UINavigationPage, UIAvatar, UISidebarFooter],
+  imports: [RouterOutlet, UINavigationPage, UIAvatar, UISidebarFooter, UIToastContainer],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -9,7 +9,7 @@ import {
 import { JsonPipe } from '@angular/common';
 
 import { LoggerFactory } from '@theredhead/foundation';
-import { UICheckbox, UIButton, UIIcon, UIIcons } from '@theredhead/ui-kit';
+import { UICheckbox, UIButton, UIIcon, UIIcons, ToastService } from '@theredhead/ui-kit';
 import { FormEngine, UIForm } from '@theredhead/ui-forms';
 import type { FormSchema } from '@theredhead/ui-forms';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
@@ -34,6 +34,7 @@ export class BoSchemaViewer {
   private readonly connectionManager = inject(ConnectionManagerService);
   private readonly formFactory = inject(SchemaFormFactory);
   protected readonly preferences = inject(PreferencesService);
+  private readonly toast = inject(ToastService);
 
   protected readonly tables = signal<string[]>([]);
   protected readonly selectedTable = signal<string | null>(null);
@@ -118,7 +119,9 @@ export class BoSchemaViewer {
       },
       error: (err) => {
         this.log.error('Failed to load tables', [err]);
-        this.error.set('Failed to load tables.');
+        const msg = err?.error?.message ?? 'Failed to load tables.';
+        this.error.set(msg);
+        this.toast.error(msg);
         this.loading.set(false);
       },
     });
@@ -139,7 +142,9 @@ export class BoSchemaViewer {
       },
       error: (err) => {
         this.log.error('Failed to load schema', [err]);
-        this.error.set('Failed to load schema.');
+        const msg = err?.error?.message ?? 'Failed to load schema.';
+        this.error.set(msg);
+        this.toast.error(msg);
         this.loading.set(false);
       },
     });

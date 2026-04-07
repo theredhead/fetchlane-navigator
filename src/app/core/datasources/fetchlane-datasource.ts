@@ -13,10 +13,20 @@ import {
   type FilterExpression,
   Emitter,
   SortDirection,
+  type Logger,
+  LoggerFactory,
 } from '@theredhead/foundation';
-import type { FilterDescriptor, FilterRule } from '@theredhead/ui-kit';
+import { ToastService, type FilterDescriptor, type FilterRule } from '@theredhead/ui-kit';
 
-import type { FetchPredicate, FetchSort, ForeignKeyInfo, FullTableSchema } from '../models';
+import type {
+  ConnectionConfig,
+  FetchPredicate,
+  FetchSort,
+  ForeignKeyInfo,
+  FullTableSchema,
+} from '../models';
+
+export type DbEngine = ConnectionConfig['engine'];
 
 export interface FetchlanePage {
   readonly rows: readonly Record<string, unknown>[];
@@ -40,6 +50,8 @@ export class FetchlaneDatasource
   public readonly noteRowRangeChanged = new Emitter<RowRangeChangedNotification>();
 
   private readonly http: HttpClient;
+  private readonly toast: ToastService;
+  private readonly log: Logger;
   private static readonly MAX_CACHED_PAGES = 10;
 
   private readonly pageCache = new Map<number, Record<string, unknown>[]>();
@@ -61,9 +73,12 @@ export class FetchlaneDatasource
   public constructor(
     private readonly baseUrl: string,
     private readonly table: string,
+    private readonly engine: DbEngine,
     injector: Injector,
   ) {
     this.http = injector.get(HttpClient);
+    this.toast = injector.get(ToastService);
+    this.log = injector.get(LoggerFactory).createLogger('FetchlaneDatasource');
     this.initialLoad = new Promise<number>((resolve) => {
       this.resolveInitialLoad = resolve;
     });
@@ -267,22 +282,29 @@ export class FetchlaneDatasource
       pagination: { size: this.pageSize, index: nextPage },
     };
     const url = `${this.baseUrl}/api/data-access/fetch`;
-    firstValueFrom(this.http.post<FetchlanePage>(url, body)).then((response) => {
-      const rows = [...response.rows];
-      if (rows.length > 0) {
-        this.cachePage(nextPage, rows);
-      }
-      if (rows.length < this.pageSize) {
-        this.totalCount = nextPage * this.pageSize + rows.length;
-        this.totalKnown = true;
-      } else {
-        this.totalCount = Math.max(this.totalCount, (nextPage + 1) * this.pageSize);
-      }
-      this.probingPage = -1;
-      this.noteRowRangeChanged.emit({
-        range: { start: 0, length: this.rows.length },
+    firstValueFrom(this.http.post<FetchlanePage>(url, body))
+      .then((response) => {
+        const rows = [...response.rows];
+        if (rows.length > 0) {
+          this.cachePage(nextPage, rows);
+        }
+        if (rows.length < this.pageSize) {
+          this.totalCount = nextPage * this.pageSize + rows.length;
+          this.totalKnown = true;
+        } else {
+          this.totalCount = Math.max(this.totalCount, (nextPage + 1) * this.pageSize);
+        }
+        this.probingPage = -1;
+        this.noteRowRangeChanged.emit({
+          range: { start: 0, length: this.rows.length },
+        });
+      })
+      .catch((err) => {
+        this.probingPage = -1;
+        const msg = err?.error?.message ?? 'Failed to fetch data';
+        this.log.error(msg, [err]);
+        this.toast.error(msg);
       });
-    });
   }
 
   private cachePage(page: number, rows: Record<string, unknown>[]): void {
@@ -323,7 +345,20 @@ export class FetchlaneDatasource
     };
 
     const url = `${this.baseUrl}/api/data-access/fetch`;
-    const response = await firstValueFrom(this.http.post<FetchlanePage>(url, body));
+    let response: FetchlanePage;
+    try {
+      response = await firstValueFrom(this.http.post<FetchlanePage>(url, body));
+    } catch (err: unknown) {
+      const httpErr = err as { error?: { message?: string } };
+      const msg = httpErr?.error?.message ?? 'Failed to fetch data';
+      this.log.error(msg, [err]);
+      this.toast.error(msg);
+      if (this.initialLoad) {
+        this.resolveInitialLoad(this.totalCount);
+        this.initialLoad = null;
+      }
+      return;
+    }
 
     this.pageIndex = page;
     this.rows = [...response.rows];
@@ -341,19 +376,23 @@ export class FetchlaneDatasource
         sort: this.sortExpressions,
         pagination: { size: this.pageSize, index: page + 1 },
       };
-      const probe = await firstValueFrom(this.http.post<FetchlanePage>(url, probeBody));
+      try {
+        const probe = await firstValueFrom(this.http.post<FetchlanePage>(url, probeBody));
 
-      if (probe.rows.length > 0) {
-        this.cachePage(page + 1, [...probe.rows]);
-      }
+        if (probe.rows.length > 0) {
+          this.cachePage(page + 1, [...probe.rows]);
+        }
 
-      if (probe.rows.length < this.pageSize) {
-        // Probe returned partial or empty — exact total known.
-        this.totalCount = (page + 1) * this.pageSize + probe.rows.length;
-        this.totalKnown = true;
-      } else {
-        // Probe also full — more data exists beyond.
-        this.totalCount = (page + 2) * this.pageSize;
+        if (probe.rows.length < this.pageSize) {
+          // Probe returned partial or empty — exact total known.
+          this.totalCount = (page + 1) * this.pageSize + probe.rows.length;
+          this.totalKnown = true;
+        } else {
+          // Probe also full — more data exists beyond.
+          this.totalCount = (page + 2) * this.pageSize;
+        }
+      } catch {
+        // Probe failure is non-critical — leave total approximate.
       }
     }
 
@@ -369,24 +408,29 @@ export class FetchlaneDatasource
 
   private ruleToFetchPredicate(rule: FilterRule): FetchPredicate | null {
     const col = rule.field;
-    if (!col || col === '__any__') {
+    if (!col) {
       return null;
+    }
+
+    // "Any field" simple search — build an OR across all string columns
+    if (col === '__any__') {
+      return this.buildAnyFieldPredicate(rule);
     }
 
     const val = rule.value;
     switch (rule.operator) {
       case 'contains':
-        return { text: `${col} ILIKE :value`, args: { value: `%${val}%` } };
+        return this.caseInsensitiveLike(col, `%${val}%`);
       case 'notContains':
-        return { text: `${col} NOT ILIKE :value`, args: { value: `%${val}%` } };
+        return this.caseInsensitiveLike(col, `%${val}%`, true);
       case 'equals':
         return { text: `${col} = :value`, args: { value: val } };
       case 'notEquals':
         return { text: `${col} != :value`, args: { value: val } };
       case 'startsWith':
-        return { text: `${col} ILIKE :value`, args: { value: `${val}%` } };
+        return this.caseInsensitiveLike(col, `${val}%`);
       case 'endsWith':
-        return { text: `${col} ILIKE :value`, args: { value: `%${val}` } };
+        return this.caseInsensitiveLike(col, `%${val}`);
       case 'greaterThan':
         return { text: `${col} > :value`, args: { value: val } };
       case 'greaterThanOrEqual':
@@ -413,6 +457,34 @@ export class FetchlaneDatasource
     }
   }
 
+  private buildAnyFieldPredicate(rule: FilterRule): FetchPredicate | null {
+    if (!this.schema || !rule.value) {
+      return null;
+    }
+    const stringCols = this.schema.columns
+      .filter((c) => {
+        const t = c.data_type.toLowerCase();
+        return (
+          t.includes('char') ||
+          t.includes('text') ||
+          t.includes('varchar') ||
+          t === 'name' ||
+          t === 'nvarchar' ||
+          t === 'nchar' ||
+          t === 'ntext'
+        );
+      })
+      .map((c) => c.column_name);
+
+    if (stringCols.length === 0) {
+      return null;
+    }
+
+    const like = this.caseInsensitiveLike('__COL__', `%${rule.value}%`);
+    const clauses = stringCols.map((c) => like.text.replace('__COL__', c)).join(' OR ');
+    return { text: `(${clauses})`, args: like.args };
+  }
+
   private extractForeignKeys(schema: FullTableSchema): ForeignKeyInfo[] {
     return schema.constraints
       .filter((c) => c.constraint_type === 'FOREIGN KEY' && c.referenced_table)
@@ -430,6 +502,25 @@ export class FetchlaneDatasource
         };
       })
       .filter((fk) => fk.column.length > 0);
+  }
+
+  // TODO: The engine should ideally come from the Fetchlane backend itself
+  // (e.g. a `/api/info` endpoint exposing the actual database driver),
+  // rather than relying on the client-side ConnectionConfig.
+  private caseInsensitiveLike(col: string, pattern: string, negate = false): FetchPredicate {
+    const not = negate ? 'NOT ' : '';
+    switch (this.engine) {
+      case 'postgres':
+        return { text: `${col} ${not}ILIKE :value`, args: { value: pattern } };
+      case 'mysql':
+        // MySQL LIKE is case-insensitive for most collations; explicit LOWER for safety
+        return { text: `LOWER(${col}) ${not}LIKE LOWER(:value)`, args: { value: pattern } };
+      case 'mssql':
+        // SQL Server LIKE is case-insensitive by default with CI collations
+        return { text: `LOWER(${col}) ${not}LIKE LOWER(:value)`, args: { value: pattern } };
+      default:
+        return { text: `LOWER(${col}) ${not}LIKE LOWER(:value)`, args: { value: pattern } };
+    }
   }
 
   private inferFkColumn(constraintName: string, tableName: string): string {
