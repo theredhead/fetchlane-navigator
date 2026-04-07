@@ -4,6 +4,29 @@
       Back
     </button>
     <h2 class="bo-record-title">{{ tableName() }} / {{ primaryKey() }}</h2>
+    @if (canWrite()) {
+      <span class="bo-record-actions">
+        <ui-button
+          variant="ghost"
+          size="small"
+          ariaLabel="Edit record"
+          (click)="openEditDialog()"
+        >
+          <ui-icon [svg]="pencilIcon" [size]="16" />
+          Edit
+        </ui-button>
+        <ui-button
+          variant="ghost"
+          size="small"
+          color="danger"
+          ariaLabel="Delete record"
+          (click)="confirmDelete()"
+        >
+          <ui-icon [svg]="trashIcon" [size]="16" />
+          Delete
+        </ui-button>
+      </span>
+    }
   </header>
 
   @if (error()) {

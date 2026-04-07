@@ -32,16 +32,23 @@
       </div>
     } @else if (datasource(); as ds) {
       <div class="bo-records">
-        <h2 class="bo-records-heading">{{ selectedTable() }}</h2>
+        <div class="bo-records-toolbar">
+          <h2 class="bo-records-heading">{{ selectedTable() }}</h2>
+          <div class="bo-toolbar-actions">
+            @if (canWrite()) {
+              <ui-button size="small" color="primary" (click)="openAddDialog()" ariaLabel="Add record">
+                <ui-icon [svg]="plusIcon" [size]="16" />
+                Add
+              </ui-button>
+            }
+          </div>
+        </div>
 
         <ui-table-view
           [datasource]="ds"
           [pageSize]="50"
-          selectionMode="single"
-          [rowClickSelect]="true"
+          selectionMode="none"
           [showBuiltInPaginator]="true"
-          (selectionChange)="onSelectionChange($event)"
-          (dblclick)="onTableDblClick()"
         >
           @for (col of columns(); track col.key) {
             @if (col.fk; as fk) {
@@ -60,6 +67,20 @@
             } @else {
               <ui-text-column [key]="col.key" [headerText]="col.header" />
             }
+          }
+          @if (canWrite()) {
+            <ui-template-column key="__actions" headerText="">
+              <ng-template let-row>
+                <span class="bo-row-actions">
+                  <button class="bo-row-action" (click)="openEditDialogForRow(row); $event.stopPropagation()" aria-label="Edit record">
+                    <ui-icon [svg]="pencilIcon" [size]="14" />
+                  </button>
+                  <button class="bo-row-action bo-row-action--danger" (click)="confirmDeleteRow(row); $event.stopPropagation()" aria-label="Delete record">
+                    <ui-icon [svg]="trashIcon" [size]="14" />
+                  </button>
+                </span>
+              </ng-template>
+            </ui-template-column>
           }
         </ui-table-view>
       </div>

@@ -34,16 +34,31 @@
       <div class="bo-schema-output">
         <div class="bo-schema-toolbar">
           <h2 class="bo-schema-heading">{{ selectedTable() }}</h2>
-          <ui-checkbox
-            [checked]="preferences.schemaDisplayMode() === 'json'"
-            (checkedChange)="preferences.setSchemaDisplayMode($event ? 'json' : 'formatted')"
-            ariaLabel="Show raw JSON"
-          >Raw JSON</ui-checkbox>
+          <div class="bo-toolbar-actions">
+            @if (copyFeedback(); as feedback) {
+              <span class="bo-copy-feedback">{{ feedback }}</span>
+            }
+            <nav class="bo-tab-bar" aria-label="View mode">
+              <button class="bo-tab" [class.is-active]="activeTab() === 'schema'" (click)="setTab('schema')">Schema</button>
+              <button class="bo-tab" [class.is-active]="activeTab() === 'add-form'" (click)="setTab('add-form')">Add Form</button>
+              <button class="bo-tab" [class.is-active]="activeTab() === 'edit-form'" (click)="setTab('edit-form')">Edit Form</button>
+            </nav>
+          </div>
         </div>
 
-        @if (preferences.schemaDisplayMode() === 'json') {
-          <pre class="bo-schema-json"><code>{{ rawSchema() | json }}</code></pre>
-        } @else {
+        @switch (activeTab()) {
+          @case ('schema') {
+            <div class="bo-schema-mode-toggle">
+              <ui-checkbox
+                [checked]="preferences.schemaDisplayMode() === 'json'"
+                (checkedChange)="preferences.setSchemaDisplayMode($event ? 'json' : 'formatted')"
+                ariaLabel="Show raw JSON"
+              >Raw JSON</ui-checkbox>
+            </div>
+
+            @if (preferences.schemaDisplayMode() === 'json') {
+              <pre class="bo-schema-json"><code>{{ rawSchema() | json }}</code></pre>
+            } @else {
           <div class="bo-schema-formatted">
             <section class="bo-schema-section">
               <h3 class="bo-section-heading">Table Info</h3>
@@ -169,6 +184,46 @@
               </section>
             }
           </div>
+        }
+          }
+          @case ('add-form') {
+            <div class="bo-form-preview-panel">
+              <div class="bo-form-preview-toolbar">
+                <ui-button variant="ghost" size="small" (click)="copyFormJson('add')" ariaLabel="Copy Add Form JSON">
+                  <ui-icon [svg]="copyIcon" [size]="16" />
+                  Copy JSON
+                </ui-button>
+              </div>
+              @if (addFormEngine(); as engine) {
+                <div class="bo-form-preview">
+                  <ui-form [engine]="engine" [showSubmit]="false" />
+                </div>
+                <details class="bo-form-json-details">
+                  <summary>View JSON</summary>
+                  <pre class="bo-schema-json"><code>{{ addFormSchema() | json }}</code></pre>
+                </details>
+              }
+            </div>
+          }
+          @case ('edit-form') {
+            <div class="bo-form-preview-panel">
+              <div class="bo-form-preview-toolbar">
+                <ui-button variant="ghost" size="small" (click)="copyFormJson('edit')" ariaLabel="Copy Edit Form JSON">
+                  <ui-icon [svg]="copyIcon" [size]="16" />
+                  Copy JSON
+                </ui-button>
+              </div>
+              @if (editFormEngine(); as engine) {
+                <div class="bo-form-preview">
+                  <ui-form [engine]="engine" [showSubmit]="false" />
+                </div>
+                <details class="bo-form-json-details">
+                  <summary>View JSON</summary>
+                  <pre class="bo-schema-json"><code>{{ editFormSchema() | json }}</code></pre>
+                </details>
+              }
+            </div>
+          }
         }
       </div>
     } @else if (loading()) {

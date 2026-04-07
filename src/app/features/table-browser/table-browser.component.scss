@@ -101,8 +101,21 @@
 .bo-records-heading {
   font-size: 1.125rem;
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--ui-text);
+}
+
+.bo-records-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.bo-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 ::ng-deep .bo-fk-link {
@@ -112,5 +125,40 @@
 
   &:hover {
     color: var(--ui-primary-hover, var(--ui-accent));
+  }
+}
+
+.bo-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bo-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ui-text);
+  background: transparent;
+  opacity: 0.6;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
+
+  &:hover {
+    opacity: 1;
+    background: var(--ui-hover);
+  }
+
+  &--danger:hover {
+    color: var(--ui-danger, #dc2626);
+    background: var(--ui-danger-surface, rgba(220, 38, 38, 0.1));
   }
 }

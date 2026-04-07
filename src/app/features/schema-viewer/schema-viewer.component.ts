@@ -9,15 +9,20 @@ import {
 import { JsonPipe } from '@angular/common';
 
 import { LoggerFactory } from '@theredhead/foundation';
-import { UICheckbox } from '@theredhead/ui-kit';
+import { UICheckbox, UIButton, UIIcon, UIIcons } from '@theredhead/ui-kit';
+import { FormEngine, UIForm } from '@theredhead/ui-forms';
+import type { FormSchema } from '@theredhead/ui-forms';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { FetchlaneService } from '../../core/services/fetchlane.service';
 import { PreferencesService } from '../../core/services/preferences.service';
+import { SchemaFormFactory } from '../../core/services/schema-form-factory.service';
 import type { FullTableSchema } from '../../core/models';
+
+type SchemaTab = 'schema' | 'add-form' | 'edit-form';
 
 @Component({
   selector: 'bo-schema-viewer',
-  imports: [JsonPipe, UICheckbox],
+  imports: [JsonPipe, UICheckbox, UIButton, UIIcon, UIForm],
   templateUrl: './schema-viewer.component.html',
   styleUrl: './schema-viewer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,6 +32,7 @@ export class BoSchemaViewer {
   private readonly log = inject(LoggerFactory).createLogger('BoSchemaViewer');
   private readonly fetchlane = inject(FetchlaneService);
   private readonly connectionManager = inject(ConnectionManagerService);
+  private readonly formFactory = inject(SchemaFormFactory);
   protected readonly preferences = inject(PreferencesService);
 
   protected readonly tables = signal<string[]>([]);
@@ -35,11 +41,36 @@ export class BoSchemaViewer {
   protected readonly rawSchema = signal<Record<string, unknown> | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly activeTab = signal<SchemaTab>('schema');
+  protected readonly copyFeedback = signal<string | null>(null);
+
+  protected readonly copyIcon = UIIcons.Lucide.Text.Copy;
+  protected readonly eyeIcon = UIIcons.Lucide.Accessibility.Eye;
 
   protected readonly connectionName = computed(
     () => this.connectionManager.activeConnection().name,
   );
   private readonly baseUrl = computed(() => this.connectionManager.activeConnection().baseUrl);
+
+  protected readonly addFormSchema = computed<FormSchema | null>(() => {
+    const s = this.schema();
+    return s ? this.formFactory.buildFormSchema(s, 'add') : null;
+  });
+
+  protected readonly editFormSchema = computed<FormSchema | null>(() => {
+    const s = this.schema();
+    return s ? this.formFactory.buildFormSchema(s, 'edit') : null;
+  });
+
+  protected readonly addFormEngine = computed(() => {
+    const s = this.addFormSchema();
+    return s ? new FormEngine(s) : null;
+  });
+
+  protected readonly editFormEngine = computed(() => {
+    const s = this.editFormSchema();
+    return s ? new FormEngine(s) : null;
+  });
 
   public constructor() {
     effect(() => {
@@ -52,7 +83,29 @@ export class BoSchemaViewer {
 
   protected selectTable(table: string): void {
     this.selectedTable.set(table);
+    this.activeTab.set('schema');
     this.loadSchema(table);
+  }
+
+  protected setTab(tab: SchemaTab): void {
+    this.activeTab.set(tab);
+  }
+
+  protected copyFormJson(mode: 'add' | 'edit'): void {
+    const s = this.schema();
+    if (!s) {
+      return;
+    }
+    const json = this.formFactory.buildFormSchemaJson(s, mode);
+    navigator.clipboard.writeText(json).then(
+      () => {
+        this.copyFeedback.set(`${mode === 'add' ? 'Add' : 'Edit'} form JSON copied!`);
+        setTimeout(() => this.copyFeedback.set(null), 2000);
+      },
+      () => {
+        this.log.error('Failed to copy to clipboard');
+      },
+    );
   }
 
   private loadTables(baseUrl: string): void {

@@ -10,12 +10,30 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { KeyValuePipe } from '@angular/common';
-import { UITableView, UITextColumn, UITemplateColumn, UITabGroup, UITab } from '@theredhead/ui-kit';
+import {
+  UITableView,
+  UITextColumn,
+  UITemplateColumn,
+  UITabGroup,
+  UITab,
+  UIButton,
+  UIIcon,
+  UIIcons,
+  ModalService,
+} from '@theredhead/ui-kit';
 
+import { LoggerFactory } from '@theredhead/foundation';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { FetchlaneService } from '../../core/services/fetchlane.service';
 import { FetchlaneDatasource } from '../../core/datasources/fetchlane-datasource';
-import type { ForeignKeyInfo, ChildForeignKeyInfo } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+import { SchemaFormFactory } from '../../core/services/schema-form-factory.service';
+import { BoConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog.component';
+import {
+  BoRecordFormDialog,
+  type RecordFormResult,
+} from '../../shared/record-form-dialog/record-form-dialog.component';
+import type { ForeignKeyInfo, ChildForeignKeyInfo, FullTableSchema } from '../../core/models';
 
 interface ColumnDef {
   readonly key: string;
@@ -34,15 +52,28 @@ interface RelatedTableEntry {
   templateUrl: './record-inspector.component.html',
   styleUrl: './record-inspector.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UITableView, UITextColumn, UITemplateColumn, UITabGroup, UITab, KeyValuePipe],
+  imports: [
+    UITableView,
+    UITextColumn,
+    UITemplateColumn,
+    UITabGroup,
+    UITab,
+    UIButton,
+    UIIcon,
+    KeyValuePipe,
+  ],
   host: { class: 'bo-record-inspector' },
 })
 export class BoRecordInspector {
+  private readonly log = inject(LoggerFactory).createLogger('BoRecordInspector');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly fetchlane = inject(FetchlaneService);
   private readonly connectionManager = inject(ConnectionManagerService);
+  private readonly auth = inject(AuthService);
+  private readonly formFactory = inject(SchemaFormFactory);
+  private readonly modal = inject(ModalService);
 
   protected readonly tableName = signal('');
   protected readonly primaryKey = signal('');
@@ -50,10 +81,15 @@ export class BoRecordInspector {
   protected readonly fields = signal<readonly [string, unknown][]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly currentSchema = signal<FullTableSchema | null>(null);
 
   protected readonly foreignKeys = signal<readonly ForeignKeyInfo[]>([]);
   protected readonly childForeignKeys = signal<readonly ChildForeignKeyInfo[]>([]);
   protected readonly relatedDatasources = signal<ReadonlyMap<string, RelatedTableEntry>>(new Map());
+
+  protected readonly canWrite = this.auth.canWrite;
+  protected readonly pencilIcon = UIIcons.Lucide.Cursors.Pencil;
+  protected readonly trashIcon = UIIcons.Lucide.Files.Trash;
 
   protected readonly baseUrl = computed(() => this.connectionManager.activeConnection().baseUrl);
 
@@ -108,6 +144,7 @@ export class BoRecordInspector {
   private loadSchema(table: string, record: Record<string, unknown>): void {
     this.fetchlane.getCachedSchema(this.baseUrl(), table).subscribe({
       next: (schema) => {
+        this.currentSchema.set(schema);
         const fks = this.fetchlane.extractForeignKeys(schema);
         this.foreignKeys.set(fks);
         this.loadParentRelations(fks, record);
@@ -176,6 +213,92 @@ export class BoRecordInspector {
       .replace(/_/g, ' ')
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  protected openEditDialog(): void {
+    const schema = this.currentSchema();
+    const record = this.record();
+    if (!schema || !record) {
+      return;
+    }
+    const formSchema = this.formFactory.buildFormSchema(schema, 'edit');
+    const ref = this.modal.openModal<BoRecordFormDialog, RecordFormResult>({
+      component: BoRecordFormDialog,
+      inputs: {
+        title: `Edit ${schema.table_name}`,
+        formSchema,
+        initialValues: record,
+      },
+      ariaLabel: `Edit ${schema.table_name} record`,
+    });
+
+    ref.closed.subscribe((result) => {
+      if (result?.action === 'save') {
+        this.updateRecord(result.values);
+      }
+    });
+  }
+
+  protected confirmDelete(): void {
+    const table = this.tableName();
+    const pk = this.primaryKey();
+    if (!table || !pk) {
+      return;
+    }
+
+    const ref = this.modal.openModal<BoConfirmDialog, boolean>({
+      component: BoConfirmDialog,
+      inputs: {
+        title: 'Delete Record',
+        message: `Are you sure you want to delete this ${table} record (${pk})? This action cannot be undone.`,
+        confirmLabel: 'Delete',
+        confirmColor: 'danger',
+        confirmIcon: UIIcons.Lucide.Files.Trash,
+      },
+      ariaLabel: 'Confirm delete',
+    });
+
+    ref.closed.subscribe((confirmed) => {
+      if (confirmed) {
+        this.deleteRecord();
+      }
+    });
+  }
+
+  private updateRecord(values: Record<string, unknown>): void {
+    const table = this.tableName();
+    const pk = this.primaryKey();
+    if (!table || !pk) {
+      return;
+    }
+    this.fetchlane.updateRecord(this.baseUrl(), table, pk, values).subscribe({
+      next: () => {
+        this.log.debug('Record updated');
+        this.loadRecord(table, pk);
+      },
+      error: (err) => {
+        this.log.error('Failed to update record', [err]);
+        this.error.set(err?.error?.message ?? 'Failed to update record.');
+      },
+    });
+  }
+
+  private deleteRecord(): void {
+    const table = this.tableName();
+    const pk = this.primaryKey();
+    if (!table || !pk) {
+      return;
+    }
+    this.fetchlane.deleteRecord(this.baseUrl(), table, pk).subscribe({
+      next: () => {
+        this.log.debug('Record deleted');
+        this.goBack();
+      },
+      error: (err) => {
+        this.log.error('Failed to delete record', [err]);
+        this.error.set(err?.error?.message ?? 'Failed to delete record.');
+      },
+    });
   }
 
   private loadChildRelations(

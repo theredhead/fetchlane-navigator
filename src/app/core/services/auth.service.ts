@@ -1,5 +1,5 @@
 import { HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal, computed } from '@angular/core';
 import { Observable, from, switchMap } from 'rxjs';
 import Keycloak from 'keycloak-js';
 
@@ -16,6 +16,7 @@ export class AuthService {
   public readonly authenticated = signal(false);
   public readonly userName = signal('');
   public readonly roles = signal<readonly string[]>([]);
+  public readonly canWrite = computed(() => this.roles().includes('admin'));
   public readonly accountUrl = signal<string | null>(null);
 
   public async init(): Promise<void> {

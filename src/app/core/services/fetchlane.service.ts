@@ -55,15 +55,13 @@ export class FetchlaneService {
     if (this.isFresh(entry)) {
       return of(entry.value);
     }
-    return this.http
-      .get<Record<string, string>[]>(`${baseUrl}/api/data-access/table-names`)
-      .pipe(
-        map((items) => items.map((i) => i['table_name'] ?? i['TABLE_NAME'] ?? '')),
-        tap((names) => {
-          this.tableNamesCache.set(baseUrl, { value: names, expiresAt: Date.now() + CACHE_TTL_MS });
-          this.updateCacheSize();
-        }),
-      );
+    return this.http.get<Record<string, string>[]>(`${baseUrl}/api/data-access/table-names`).pipe(
+      map((items) => items.map((i) => i['table_name'] ?? i['TABLE_NAME'] ?? '')),
+      tap((names) => {
+        this.tableNamesCache.set(baseUrl, { value: names, expiresAt: Date.now() + CACHE_TTL_MS });
+        this.updateCacheSize();
+      }),
+    );
   }
 
   public getTableInfo(baseUrl: string, table: string): Observable<TableInfo> {
@@ -132,6 +130,35 @@ export class FetchlaneService {
 
   public fetch(baseUrl: string, request: FetchRequest): Observable<FetchResponse> {
     return this.http.post<FetchResponse>(`${baseUrl}/api/data-access/fetch`, request);
+  }
+
+  public createRecord(
+    baseUrl: string,
+    table: string,
+    record: Record<string, unknown>,
+  ): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(
+      `${baseUrl}/api/data-access/${encodeURIComponent(table)}`,
+      record,
+    );
+  }
+
+  public updateRecord(
+    baseUrl: string,
+    table: string,
+    primaryKey: string,
+    record: Record<string, unknown>,
+  ): Observable<Record<string, unknown>> {
+    return this.http.put<Record<string, unknown>>(
+      `${baseUrl}/api/data-access/${encodeURIComponent(table)}/record/${encodeURIComponent(primaryKey)}`,
+      record,
+    );
+  }
+
+  public deleteRecord(baseUrl: string, table: string, primaryKey: string): Observable<unknown> {
+    return this.http.delete(
+      `${baseUrl}/api/data-access/${encodeURIComponent(table)}/record/${encodeURIComponent(primaryKey)}`,
+    );
   }
 
   public getCachedSchema(baseUrl: string, table: string): Observable<FullTableSchema> {

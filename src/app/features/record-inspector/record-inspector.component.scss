@@ -32,6 +32,12 @@
   color: var(--ui-text);
 }
 
+.bo-record-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
 .bo-loading {
   opacity: 0.5;
   padding: 24px 0;

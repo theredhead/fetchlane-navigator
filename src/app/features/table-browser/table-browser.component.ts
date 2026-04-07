@@ -8,13 +8,28 @@ import {
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { UITableView, UITextColumn, UITemplateColumn } from '@theredhead/ui-kit';
+import {
+  UITableView,
+  UITextColumn,
+  UITemplateColumn,
+  UIButton,
+  UIIcon,
+  UIIcons,
+  ModalService,
+} from '@theredhead/ui-kit';
 
+import { LoggerFactory } from '@theredhead/foundation';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { FetchlaneService } from '../../core/services/fetchlane.service';
 import { FetchlaneDatasource } from '../../core/datasources/fetchlane-datasource';
-import { PreferencesService } from '../../core/services/preferences.service';
-import type { ForeignKeyInfo } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+import { SchemaFormFactory } from '../../core/services/schema-form-factory.service';
+import { BoConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog.component';
+import {
+  BoRecordFormDialog,
+  type RecordFormResult,
+} from '../../shared/record-form-dialog/record-form-dialog.component';
+import type { ForeignKeyInfo, FullTableSchema } from '../../core/models';
 
 interface ColumnDef {
   readonly key: string;
@@ -27,23 +42,31 @@ interface ColumnDef {
   templateUrl: './table-browser.component.html',
   styleUrl: './table-browser.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [UITableView, UITextColumn, UITemplateColumn],
+  imports: [UITableView, UITextColumn, UITemplateColumn, UIButton, UIIcon],
   host: { class: 'bo-table-browser' },
 })
 export class BoTableBrowser {
+  private readonly log = inject(LoggerFactory).createLogger('BoTableBrowser');
   private readonly router = inject(Router);
   private readonly fetchlane = inject(FetchlaneService);
   private readonly connectionManager = inject(ConnectionManagerService);
-  private readonly preferences = inject(PreferencesService);
+  private readonly auth = inject(AuthService);
+  private readonly formFactory = inject(SchemaFormFactory);
+  private readonly modal = inject(ModalService);
   private readonly injector = inject(Injector);
 
   protected readonly tables = signal<readonly string[]>([]);
   protected readonly selectedTable = signal<string | null>(null);
   protected readonly datasource = signal<FetchlaneDatasource | null>(null);
-  protected readonly selectedRow = signal<Record<string, unknown> | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly columns = signal<readonly ColumnDef[]>([]);
+  protected readonly currentSchema = signal<FullTableSchema | null>(null);
+
+  protected readonly canWrite = this.auth.canWrite;
+  protected readonly plusIcon = UIIcons.Lucide.Cursors.Plus;
+  protected readonly pencilIcon = UIIcons.Lucide.Cursors.Pencil;
+  protected readonly trashIcon = UIIcons.Lucide.Files.Trash;
 
   protected readonly baseUrl = computed(() => this.connectionManager.activeConnection().baseUrl);
   protected readonly connectionName = computed(
@@ -71,6 +94,7 @@ export class BoTableBrowser {
 
     this.fetchlane.getTableSchema(this.baseUrl(), table).subscribe({
       next: (schema) => {
+        this.currentSchema.set(schema);
         ds.applySchema(schema);
         this.columns.set(this.buildColumns(ds));
         ds.reload()
@@ -90,42 +114,152 @@ export class BoTableBrowser {
     });
   }
 
-  protected onSelectionChange(rows: readonly unknown[]): void {
-    if (rows.length === 0) {
-      this.selectedRow.set(null);
+  protected openAddDialog(): void {
+    const schema = this.currentSchema();
+    if (!schema) {
       return;
     }
-    const row = rows[0] as Record<string, unknown>;
-    this.selectedRow.set(row);
+    const formSchema = this.formFactory.buildFormSchema(schema, 'add');
+    const ref = this.modal.openModal<BoRecordFormDialog, RecordFormResult>({
+      component: BoRecordFormDialog,
+      inputs: {
+        title: `Add ${schema.table_name}`,
+        formSchema,
+      },
+      ariaLabel: `Add ${schema.table_name} record`,
+    });
 
-    if (this.preferences.navigationMode() === 'click') {
-      this.navigateToSelectedRow(row);
-    }
+    ref.closed.subscribe((result) => {
+      if (result?.action === 'save') {
+        this.createRecord(result.values);
+      }
+    });
   }
 
-  protected onTableDblClick(): void {
-    if (this.preferences.navigationMode() !== 'dblclick') {
+  protected openEditDialogForRow(row: Record<string, unknown>): void {
+    const schema = this.currentSchema();
+    if (!schema) {
       return;
     }
-    const row = this.selectedRow();
-    if (row) {
-      this.navigateToSelectedRow(row);
+    const pk = this.getPrimaryKeyFromRow(row);
+    if (!pk) {
+      return;
     }
+    const formSchema = this.formFactory.buildFormSchema(schema, 'edit');
+    const ref = this.modal.openModal<BoRecordFormDialog, RecordFormResult>({
+      component: BoRecordFormDialog,
+      inputs: {
+        title: `Edit ${schema.table_name}`,
+        formSchema,
+        initialValues: row,
+      },
+      ariaLabel: `Edit ${schema.table_name} record`,
+    });
+
+    ref.closed.subscribe((result) => {
+      if (result?.action === 'save') {
+        this.updateRecord(pk, result.values);
+      }
+    });
   }
 
-  private navigateToSelectedRow(row: Record<string, unknown>): void {
-    const ds = this.datasource();
+  protected confirmDeleteRow(row: Record<string, unknown>): void {
     const table = this.selectedTable();
-    if (!ds || !table) {
+    if (!table) {
+      return;
+    }
+    const pk = this.getPrimaryKeyFromRow(row);
+    if (!pk) {
       return;
     }
 
+    const ref = this.modal.openModal<BoConfirmDialog, boolean>({
+      component: BoConfirmDialog,
+      inputs: {
+        title: 'Delete Record',
+        message: `Are you sure you want to delete this ${table} record (${pk})? This action cannot be undone.`,
+        confirmLabel: 'Delete',
+        confirmColor: 'danger',
+        confirmIcon: UIIcons.Lucide.Files.Trash,
+      },
+      ariaLabel: 'Confirm delete',
+    });
+
+    ref.closed.subscribe((confirmed) => {
+      if (confirmed) {
+        this.deleteRecord(pk);
+      }
+    });
+  }
+
+  private createRecord(values: Record<string, unknown>): void {
+    const table = this.selectedTable();
+    if (!table) {
+      return;
+    }
+    this.fetchlane.createRecord(this.baseUrl(), table, values).subscribe({
+      next: () => {
+        this.log.debug('Record created');
+        this.reloadDatasource();
+      },
+      error: (err) => {
+        this.log.error('Failed to create record', [err]);
+        this.error.set(err?.error?.message ?? 'Failed to create record.');
+      },
+    });
+  }
+
+  private updateRecord(pk: string, values: Record<string, unknown>): void {
+    const table = this.selectedTable();
+    if (!table) {
+      return;
+    }
+    this.fetchlane.updateRecord(this.baseUrl(), table, pk, values).subscribe({
+      next: () => {
+        this.log.debug('Record updated');
+        this.reloadDatasource();
+      },
+      error: (err) => {
+        this.log.error('Failed to update record', [err]);
+        this.error.set(err?.error?.message ?? 'Failed to update record.');
+      },
+    });
+  }
+
+  private deleteRecord(pk: string): void {
+    const table = this.selectedTable();
+    if (!table) {
+      return;
+    }
+    this.fetchlane.deleteRecord(this.baseUrl(), table, pk).subscribe({
+      next: () => {
+        this.log.debug('Record deleted');
+        this.reloadDatasource();
+      },
+      error: (err) => {
+        this.log.error('Failed to delete record', [err]);
+        this.error.set(err?.error?.message ?? 'Failed to delete record.');
+      },
+    });
+  }
+
+  private reloadDatasource(): void {
+    const ds = this.datasource();
+    if (ds) {
+      void ds.reload();
+    }
+  }
+
+  private getPrimaryKeyFromRow(row: Record<string, unknown>): string | null {
+    const ds = this.datasource();
+    if (!ds) {
+      return null;
+    }
     const pkColumn = ds.getPrimaryKeyColumn();
     if (!pkColumn || row[pkColumn] == null) {
-      return;
+      return null;
     }
-
-    void this.router.navigate(['/browse', table, 'record', String(row[pkColumn])]);
+    return String(row[pkColumn]);
   }
 
   protected navigateToFkRecord(fk: ForeignKeyInfo, row: Record<string, unknown>): void {
