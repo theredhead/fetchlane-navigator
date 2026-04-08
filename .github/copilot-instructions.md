@@ -1,4 +1,4 @@
-# Copilot Instructions — @theredhead/backoffice-connector
+# Copilot Instructions — @theredhead/fetchlane-navigator
 
 **All project conventions, patterns, and architecture are documented in
 [AGENTS.md](../AGENTS.md) at the repository root. That file is the single

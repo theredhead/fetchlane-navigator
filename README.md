@@ -1,4 +1,4 @@
-# Backoffice Connector
+# Fetchlane Navigator
 
 > **⚠ Not production-ready.** This project is a working prototype / demo. APIs,
 > security configuration, and data handling have not been hardened for

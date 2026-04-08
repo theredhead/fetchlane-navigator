@@ -1,7 +1,7 @@
 {
   "realm": "backoffice",
   "enabled": true,
-  "displayName": "Backoffice Connector",
+  "displayName": "Fetchlane Navigator",
   "accountTheme": "keycloak.v3",
   "requiredCredentials": ["password"],
   "roles": {
@@ -71,7 +71,7 @@
     },
     {
       "clientId": "backoffice-app",
-      "name": "Backoffice Connector App",
+      "name": "Fetchlane Navigator App",
       "description": "Public SPA client with PKCE",
       "enabled": true,
       "publicClient": true,

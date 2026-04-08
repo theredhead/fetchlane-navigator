@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "backoffice-connector": {
+    "fetchlane-navigator": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -72,10 +72,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "backoffice-connector:build:production"
+              "buildTarget": "fetchlane-navigator:build:production"
             },
             "development": {
-              "buildTarget": "backoffice-connector:build:development"
+              "buildTarget": "fetchlane-navigator:build:development"
             }
           },
           "defaultConfiguration": "development"

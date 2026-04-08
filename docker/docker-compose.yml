@@ -90,8 +90,10 @@ services:
 
   fetchlane-postgres:
     build:
-      context: /Users/kris/Documents/GitHub/generic-data-access-backend
-      dockerfile: /Users/kris/projects/backoffice-connector/docker/Dockerfile.fetchlane
+      context: .
+      dockerfile: ./Dockerfile.fetchlane
+      additional_contexts:
+        fetchlane-src: ${FETCHLANE_REPO_PATH}
     platform: linux/amd64
     container_name: bo-fetchlane-postgres
     environment:
@@ -112,8 +114,10 @@ services:
 
   fetchlane-mysql:
     build:
-      context: /Users/kris/Documents/GitHub/generic-data-access-backend
-      dockerfile: /Users/kris/projects/backoffice-connector/docker/Dockerfile.fetchlane
+      context: .
+      dockerfile: ./Dockerfile.fetchlane
+      additional_contexts:
+        fetchlane-src: ${FETCHLANE_REPO_PATH}
     platform: linux/amd64
     container_name: bo-fetchlane-mysql
     environment:
@@ -134,8 +138,10 @@ services:
 
   fetchlane-mssql:
     build:
-      context: /Users/kris/Documents/GitHub/generic-data-access-backend
-      dockerfile: /Users/kris/projects/backoffice-connector/docker/Dockerfile.fetchlane
+      context: .
+      dockerfile: ./Dockerfile.fetchlane
+      additional_contexts:
+        fetchlane-src: ${FETCHLANE_REPO_PATH}
     platform: linux/amd64
     container_name: bo-fetchlane-mssql
     environment:
