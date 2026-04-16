@@ -4,8 +4,8 @@ services:
     platform: linux/amd64
     container_name: bo-keycloak
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: keycloak
-      KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: localhost
       KC_HOSTNAME_STRICT: "false"
@@ -28,9 +28,9 @@ services:
     platform: linux/amd64
     container_name: bo-chinook-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
     volumes:
@@ -49,7 +49,7 @@ services:
     platform: linux/amd64
     container_name: bo-chinook-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: Chinook
     ports:
       - "3306:3306"
@@ -70,7 +70,7 @@ services:
     container_name: bo-chinook-mssql
     environment:
       ACCEPT_EULA: "Y"
-      SA_PASSWORD: "Chinook_Strong!Pass"
+      SA_PASSWORD: ${SA_PASSWORD}
       MSSQL_PID: Developer
     ports:
       - "1433:1433"
@@ -98,8 +98,8 @@ services:
     container_name: bo-fetchlane-postgres
     environment:
       FETCHLANE_CONFIG: /app/config/fetchlane.json
-      FETCHLANE_DATABASE_URL: postgres://postgres:postgres@chinook-postgres:5432/chinook
-      FETCHLANE_OIDC_ISSUER_URL: http://localhost:8080/realms/backoffice
+      FETCHLANE_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@chinook-postgres:5432/chinook
+      FETCHLANE_OIDC_ISSUER_URL: ${FETCHLANE_OIDC_ISSUER_URL}
     ports:
       - "3001:3000"
     volumes:
@@ -122,8 +122,8 @@ services:
     container_name: bo-fetchlane-mysql
     environment:
       FETCHLANE_CONFIG: /app/config/fetchlane.json
-      FETCHLANE_DATABASE_URL: mysql://root:root@chinook-mysql:3306/Chinook
-      FETCHLANE_OIDC_ISSUER_URL: http://localhost:8080/realms/backoffice
+      FETCHLANE_DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@chinook-mysql:3306/Chinook
+      FETCHLANE_OIDC_ISSUER_URL: ${FETCHLANE_OIDC_ISSUER_URL}
     ports:
       - "3002:3000"
     volumes:
@@ -146,8 +146,8 @@ services:
     container_name: bo-fetchlane-mssql
     environment:
       FETCHLANE_CONFIG: /app/config/fetchlane.json
-      FETCHLANE_DATABASE_URL: "sqlserver://sa:Chinook_Strong!Pass@chinook-mssql:1433/Chinook"
-      FETCHLANE_OIDC_ISSUER_URL: http://localhost:8080/realms/backoffice
+      FETCHLANE_DATABASE_URL: "sqlserver://sa:${SA_PASSWORD}@chinook-mssql:1433/Chinook"
+      FETCHLANE_OIDC_ISSUER_URL: ${FETCHLANE_OIDC_ISSUER_URL}
     ports:
       - "3003:3000"
     volumes:
